@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "TenantSpace",
+    "slug": "tenantspace",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "tenantspace",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "plugins": [
+      [
+        "expo-router",
+        {}
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

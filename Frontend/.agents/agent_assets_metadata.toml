@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "STqb-EEv5KJFrjqxwrrOX"
+uri = "file://artifacts/unitlink/assets/images/icon.png"
+type = "image"
+title = "unitlink app icon"
