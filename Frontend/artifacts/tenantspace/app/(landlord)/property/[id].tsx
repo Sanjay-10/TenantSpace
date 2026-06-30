@@ -13,6 +13,7 @@ import { supabase } from '../../../lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import NewAnnouncementModal from '../../../components/property/NewAnnouncementModal';
+import AddRoomModal from '../../../components/property/AddRoomModal';
 import RoomsTab from '../../../components/property/RoomsTab';
 import RentTab from '../../../components/property/RentTab';
 import UpdatesTab from '../../../components/property/UpdatesTab';
@@ -31,6 +32,7 @@ export default function PropertyDetailScreen() {
   
   // Announcement Modal State
   const [showAnnModal, setShowAnnModal] = useState(false);
+  const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [editAnnId, setEditAnnId] = useState<string | null>(null);
   const [annTitle, setAnnTitle] = useState('');
   const [annBody, setAnnBody] = useState('');
@@ -361,13 +363,21 @@ export default function PropertyDetailScreen() {
           handleSaveAnnouncement={handleSaveAnnouncement}
         />
 
+        {/* Add Room Modal */}
+        <AddRoomModal
+          visible={showAddRoomModal}
+          onClose={() => setShowAddRoomModal(false)}
+          propertyId={id as string}
+          propertyName={property?.name}
+        />
+
         {/* Floating Action Buttons */}
         <Animated.View style={[styles.fabContainerCenter, { transform: [{ translateY: fabTranslateY }] }]} pointerEvents="box-none">
           <Pressable 
             style={styles.fabPrimary}
             onPress={() => {
               if (activeTab === 'rooms') {
-                router.push({ pathname: '/(landlord)/property/add-room', params: { propertyId: id } } as any);
+                setShowAddRoomModal(true);
               } else if (activeTab === 'updates' && updatesSubTab === 'Duties') {
                 router.push({ pathname: '/(landlord)/property/assign-chore', params: { propertyId: id } } as any);
               } else if (activeTab === 'updates' && updatesSubTab === 'Announcements') {

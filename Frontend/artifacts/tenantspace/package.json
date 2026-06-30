@@ -52,10 +52,12 @@
     "zod": "^3.25.76"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "8.4.4",
     "@supabase/supabase-js": "^2.48.0",
     "@tanstack/query-async-storage-persister": "^5.101.2",
     "@tanstack/react-query-persist-client": "^5.101.2",
     "expo-clipboard": "~8.0.8",
+    "expo-document-picker": "~14.0.8",
     "react-native-web": "^0.21.0"
   }
 }

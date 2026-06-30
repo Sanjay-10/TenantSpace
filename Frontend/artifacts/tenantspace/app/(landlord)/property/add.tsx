@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Clipboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
@@ -128,15 +128,15 @@ export default function AddPropertyScreen() {
     }
   };
 
-  const copyToClipboard = (code: string) => {
-    Clipboard.setString(code);
+  const copyToClipboard = async (code: string) => {
+    await Clipboard.setStringAsync(code);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert('Copied!', `Room code ${code} copied to clipboard.`);
   };
 
-  const shareAllCodes = () => {
+  const shareAllCodes = async () => {
     const text = createdRooms.map((r) => `${r.name}: ${r.code}`).join('\n');
-    Clipboard.setString(text);
+    await Clipboard.setStringAsync(text);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Copied All!', 'All room invite codes copied to clipboard.');
   };
