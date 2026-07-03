@@ -37,7 +37,7 @@ const FREQ_OPTS = [
 const COLORS = ['#2563EB', '#8B5CF6', '#F97316', '#10B981', '#EF4444', '#64748B'];
 
 export default function AssignChoreScreen() {
-  const { propertyId } = useLocalSearchParams();
+  const { propertyId, choreId } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -90,7 +90,30 @@ export default function AssignChoreScreen() {
     });
 
     setAllTenants(tenants);
-    setRotation(tenants); // default to all tenants
+
+    if (choreId) {
+      fetchExistingChore(tenants);
+    } else {
+      setRotation(tenants); // default to all tenants
+    }
+  };
+
+  const fetchExistingChore = async (tenants: any[]) => {
+    setLoading(true);
+    const { data, error } = await supabase.from('chores').select('*').eq('id', choreId).single();
+    setLoading(false);
+    if (error || !data) return;
+
+    setDutyName(data.name);
+    setSelectedDays(data.days_of_week || []);
+    setFreq(data.frequency || 'weekly');
+    setRepeatCycle(data.repeat_cycle !== false);
+    setSendReminder(data.send_reminder !== false);
+    
+    if (data.rotation_order) {
+      const savedRotation = data.rotation_order.map((tId: string) => tenants.find(t => t.id === tId)).filter(Boolean);
+      setRotation(savedRotation);
+    }
   };
 
   const removedTenants = allTenants.filter(p => !rotation.find(r => r.id === p.id));
@@ -122,7 +145,7 @@ export default function AssignChoreScreen() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.from('chores').insert({
+      const chorePayload = {
         property_id: propertyId,
         name: dutyName.trim(),
         days_of_week: selectedDays,
@@ -131,9 +154,18 @@ export default function AssignChoreScreen() {
         repeat_cycle: repeatCycle,
         send_reminder: sendReminder,
         status: 'pending'
-      });
+      };
 
-      if (error) throw error;
+      let dbError;
+      if (choreId) {
+        const { error } = await supabase.from('chores').update(chorePayload).eq('id', choreId);
+        dbError = error;
+      } else {
+        const { error } = await supabase.from('chores').insert(chorePayload);
+        dbError = error;
+      }
+
+      if (dbError) throw dbError;
       router.back();
     } catch (err: any) {
       console.error(err);
@@ -157,7 +189,7 @@ export default function AssignChoreScreen() {
             <Text style={styles.headerBackText}>←</Text>
           </Pressable>
           <View>
-            <Text style={styles.headerTitle}>Assign Chore</Text>
+            <Text style={styles.headerTitle}>{choreId ? 'Edit Chore' : 'Assign Chore'}</Text>
             <Text style={styles.headerSubtitle}>Maple Grove</Text>
           </View>
         </View>
@@ -463,7 +495,7 @@ const styles = StyleSheet.create({
   positionBadgeText: { fontSize: 11, fontWeight: '800', color: Theme.colors.mutedFg, fontFamily: Theme.fonts.bold },
   avatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 11, fontWeight: '800', color: '#fff', fontFamily: Theme.fonts.bold },
-  personInfo: { flex: 1 },
+  personInfo: { flex: 1, marginLeft: 6 },
   personName: { fontSize: 13, fontWeight: '700', color: Theme.colors.fg, fontFamily: Theme.fonts.bold },
   personRoom: { fontSize: 11, color: Theme.colors.mutedFg, fontFamily: Theme.fonts.regular },
   removeBtn: {

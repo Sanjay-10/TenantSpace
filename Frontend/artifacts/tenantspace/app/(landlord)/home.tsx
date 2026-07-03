@@ -103,6 +103,16 @@ export default function LandlordHomeScreen() {
     ? profile.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : 'SM';
 
+  const handleSwitchToTenant = async () => {
+    try {
+      const { error } = await supabase.from('profiles').update({ role: 'tenant' }).eq('id', profile?.id);
+      if (error) throw error;
+      router.replace('/(tenant)/home');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading && !manualRefreshing) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -187,7 +197,7 @@ export default function LandlordHomeScreen() {
           <View style={styles.footerHint}>
             <Text style={styles.footerHintText}>
               Are you a tenant?{' '}
-              <Text style={styles.footerHintLink} onPress={() => {}}>Switch to tenant mode</Text>
+              <Text style={styles.footerHintLink} onPress={handleSwitchToTenant}>Switch to tenant mode</Text>
             </Text>
           </View>
         </ScrollView>
@@ -218,7 +228,7 @@ export default function LandlordHomeScreen() {
           </Pressable>
           <Pressable 
             style={styles.headerIconButton}
-            onPress={signOut}
+            onPress={() => router.push('/(landlord)/settings')}
           >
             <Text style={styles.headerIconText}>⚙️</Text>
           </Pressable>

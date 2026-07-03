@@ -7,19 +7,16 @@ import { C, styles } from './propertyStyles';
 interface Props {
   id: string;
   rooms: any[];
-  refreshing: boolean;
-  onRefresh: () => void;
   renderPropertyHero: () => React.ReactNode;
 }
 
-export default function RoomsTab({ id, rooms, refreshing, onRefresh, renderPropertyHero }: Props) {
+export default function RoomsTab({ id, rooms, renderPropertyHero }: Props) {
   const router = useRouter();
 
   return (
     <ScrollView 
       style={styles.tabContent}
       contentContainerStyle={styles.tabContentContainer}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {renderPropertyHero()}
       

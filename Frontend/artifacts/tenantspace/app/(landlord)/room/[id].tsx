@@ -230,16 +230,8 @@ export default function RoomDetailScreen() {
   }
 
   const propertyName = roomData.properties?.name || 'Unknown Property';
-  const activeTenant = (roomData.tenant_memberships || []).find((m: any) => m.status === 'active');
-  const tenantProfile = activeTenant?.profiles;
+  const activeTenants = (roomData.tenant_memberships || []).filter((m: any) => m.status === 'active');
   const documents = roomData.room_documents || [];
-  
-  let tenantSince = 'Recently';
-  if (activeTenant?.created_at) {
-    const d = new Date(activeTenant.created_at);
-    tenantSince = `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
-  }
-  const tenantInitials = tenantProfile?.full_name ? tenantProfile.full_name.substring(0, 2).toUpperCase() : 'T';
 
   return (
     <View style={styles.container}>
@@ -269,22 +261,34 @@ export default function RoomDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Tenant Card */}
-          {tenantProfile ? (
-            <View style={styles.tenantCard}>
-              <View style={styles.tenantLeft}>
-                <View style={styles.tenantAvatar}>
-                  <Text style={styles.tenantAvatarText}>{tenantInitials}</Text>
+          {/* Tenant Cards */}
+          <View style={{ gap: 5, marginBottom: 20 }}>
+          {activeTenants.length > 0 ? (
+            activeTenants.map((tenant: any) => {
+              const profile = tenant.profiles;
+              const initials = profile?.full_name ? profile.full_name.substring(0, 2).toUpperCase() : 'T';
+              let since = 'Recently';
+              if (tenant.created_at) {
+                const d = new Date(tenant.created_at);
+                since = `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
+              }
+              return (
+                <View key={tenant.id} style={styles.tenantCard}>
+                  <View style={styles.tenantLeft}>
+                    <View style={styles.tenantAvatar}>
+                      <Text style={styles.tenantAvatarText}>{initials}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.tenantName}>{profile?.full_name || 'Unknown'}</Text>
+                      <Text style={styles.tenantSince}>Tenant - Since {since}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.badgePending}>
+                    <Text style={styles.badgePendingText}>Rent Pending</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.tenantName}>{tenantProfile.full_name}</Text>
-                  <Text style={styles.tenantSince}>Tenant - Since {tenantSince}</Text>
-                </View>
-              </View>
-              <View style={styles.badgePending}>
-                <Text style={styles.badgePendingText}>Rent Pending</Text>
-              </View>
-            </View>
+              );
+            })
           ) : (
             <View style={styles.tenantCard}>
               <View style={styles.tenantLeft}>
@@ -298,6 +302,7 @@ export default function RoomDetailScreen() {
               </View>
             </View>
           )}
+          </View>
 
           {/* ROOM DETAILS SECTION */}
           <View style={styles.sectionHeader}>
@@ -523,7 +528,7 @@ const styles = StyleSheet.create({
   editBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, backgroundColor: Theme.colors.primary },
   editBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   scrollContent: { padding: 16 },
-  tenantCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 14, padding: 13, paddingHorizontal: 16, borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 20 },
+  tenantCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 14, padding: 13, paddingHorizontal: 16, borderWidth: 1, borderColor: Theme.colors.border },
   tenantLeft: { flexDirection: 'row', alignItems: 'center' },
   tenantAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Theme.colors.accent, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   tenantAvatarText: { fontSize: 16, fontWeight: '800', color: Theme.colors.primary },

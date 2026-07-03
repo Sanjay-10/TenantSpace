@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-community/netinfo": "11.4.1",
     "@supabase/supabase-js": "^2.48.0",
     "@tanstack/query-async-storage-persister": "^5.101.2",
     "@tanstack/react-query-persist-client": "^5.101.2",

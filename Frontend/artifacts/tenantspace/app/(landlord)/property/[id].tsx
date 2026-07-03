@@ -73,25 +73,38 @@ export default function PropertyDetailScreen() {
   }, [showCenterFab]);
   
   const queryClient = useQueryClient();
-  const [manualRefreshing, setManualRefreshing] = useState(false);
 
   const { data, isLoading: loading, refetch } = useQuery({
     queryKey: ['propertyData', id],
     queryFn: async () => {
       if (!id) throw new Error('No ID');
-      // Fetch property details
-      const { data: propData, error: propError } = await supabase.from('properties').select('*').eq('id', id).single();
-      if (propError) throw propError;
+      // Unified 1 API Call utilizing Resource Embedding
+      const { data: propData, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          rooms (*, tenant_memberships (id, status, profiles (id, full_name, role))),
+          chores (*),
+          announcements (*),
+          maintenance_requests (*)
+        `)
+        .eq('id', id)
+        .single();
+        
+      if (error) throw error;
 
-      // Fetch rooms & tenants
-      const { data: roomsData, error: roomsError } = await supabase
-        .from('rooms')
-        .select('*, tenant_memberships (id, status, profiles (id, full_name, role))')
-        .eq('property_id', id);
-      if (roomsError) throw roomsError;
+      // Sort announcements by created_at descending (newest first)
+      const sortedAnnouncements = (propData.announcements || []).sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Sort requests by created_at descending (newest first)
+      const sortedRequests = (propData.maintenance_requests || []).sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
       const tMap: Record<string, any> = {};
-      const processedRooms = (roomsData || []).map(room => {
+      const processedRooms = (propData.rooms || []).map((room: any) => {
         const activeMemberships = room.tenant_memberships?.filter((m: any) => m.status === 'active') || [];
         const tenants = activeMemberships.map((m: any) => {
           const tenantObj = {
@@ -107,20 +120,13 @@ export default function PropertyDetailScreen() {
         return { ...room, tenants, rentPaid: true };
       });
 
-      // Fetch chores
-      const { data: choresData, error: choresError } = await supabase.from('chores').select('*').eq('property_id', id);
-      if (choresError) throw choresError;
-
-      // Fetch announcements
-      const { data: annData, error: annError } = await supabase.from('announcements').select('*').eq('property_id', id).order('created_at', { ascending: false });
-      if (annError) throw annError;
-
       return {
         property: propData,
         rooms: processedRooms,
         tenantMap: tMap,
-        chores: choresData || [],
-        announcements: annData || []
+        chores: propData.chores || [],
+        announcements: sortedAnnouncements,
+        maintenance_requests: sortedRequests
       };
     },
     enabled: !!id
@@ -131,12 +137,7 @@ export default function PropertyDetailScreen() {
   const tenantMap = data?.tenantMap || {};
   const chores = data?.chores || [];
   const announcements = data?.announcements || [];
-
-  const onRefresh = async () => {
-    setManualRefreshing(true);
-    await refetch();
-    setManualRefreshing(false);
-  };
+  const maintenanceRequests = data?.maintenance_requests || [];
 
   // Realtime WebSockets Subscription
   useEffect(() => {
@@ -146,6 +147,9 @@ export default function PropertyDetailScreen() {
         queryClient.invalidateQueries({ queryKey: ['propertyData', id] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chores', filter: `property_id=eq.${id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['propertyData', id] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_requests', filter: `property_id=eq.${id}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['propertyData', id] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_memberships' }, () => {
@@ -219,7 +223,7 @@ export default function PropertyDetailScreen() {
   };
 
 
-  if (loading && !manualRefreshing) {
+  if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={C.primary} />
@@ -311,16 +315,12 @@ export default function PropertyDetailScreen() {
           <RoomsTab 
             id={id as string}
             rooms={rooms} 
-            refreshing={manualRefreshing} 
-            onRefresh={onRefresh} 
             renderPropertyHero={renderPropertyHero} 
           />
         )}
         {activeTab === 'rent' && (
           <RentTab 
             rooms={rooms} 
-            refreshing={manualRefreshing} 
-            onRefresh={onRefresh} 
             renderPropertyHero={renderPropertyHero} 
           />
         )}
@@ -329,13 +329,12 @@ export default function PropertyDetailScreen() {
             id={id as string}
             chores={chores}
             announcements={announcements}
+            maintenanceRequests={maintenanceRequests}
             updatesSubTab={updatesSubTab}
             setUpdatesSubTab={setUpdatesSubTab}
             expandedChore={expandedChore}
             setExpandedChore={setExpandedChore}
             tenantMap={tenantMap}
-            refreshing={manualRefreshing}
-            onRefresh={onRefresh}
             setEditAnnId={setEditAnnId}
             setAnnTitle={setAnnTitle}
             setAnnBody={setAnnBody}
