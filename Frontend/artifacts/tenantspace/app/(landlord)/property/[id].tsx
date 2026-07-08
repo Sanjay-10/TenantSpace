@@ -397,7 +397,7 @@ export default function PropertyDetailScreen() {
         </Animated.View>
 
         <View style={styles.fabContainerRight} pointerEvents="box-none">
-          <Pressable style={styles.fabChat}>
+          <Pressable style={styles.fabChat} onPress={() => router.push(`/(landlord)/property/${id}/chats`)}>
             <Text style={styles.fabChatIcon}>💬</Text>
             <View style={styles.fabChatBadge}>
               <Text style={styles.fabChatBadgeText}>2</Text>

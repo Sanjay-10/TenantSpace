@@ -9,9 +9,12 @@ interface MyRoomTabProps {
   roommates: any[];
   onLeaveRoom: () => void;
   leaving: boolean;
+  onChatPress: (type: 'private' | 'group') => void;
+  privateUnreadCount?: number;
+  groupUnreadCount?: number;
 }
 
-export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, leaving }: MyRoomTabProps) {
+export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, leaving, onChatPress, privateUnreadCount = 0, groupUnreadCount = 0 }: MyRoomTabProps) {
   const prop = roomData?.properties;
   
   // Convert additional_details back to simple map for display
@@ -41,19 +44,27 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
         <Text style={styles.sectionTitle}>CHATS</Text>
         
         {/* Landlord Chat */}
-        <Pressable style={styles.chatCard}>
+        <Pressable style={styles.chatCard} onPress={() => onChatPress('private')}>
           <View style={[styles.avatarWrap, { backgroundColor: Theme.colors.accent }]}>
             <Text style={{ fontSize: 20 }}>🏠</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.chatName}>{landlordProfile?.full_name || 'Landlord'}</Text>
-            <Text style={styles.chatSub} numberOfLines={1}>Your Landlord · Tap to message</Text>
+            <Text style={[styles.chatSub, privateUnreadCount > 0 && styles.chatSubUnread]} numberOfLines={1}>
+              {privateUnreadCount > 0 ? `${privateUnreadCount} new message${privateUnreadCount !== 1 ? 's' : ''}` : 'Your Landlord · Tap to message'}
+            </Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
+          {privateUnreadCount > 0 ? (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{privateUnreadCount}</Text>
+            </View>
+          ) : (
+            <Text style={styles.chevron}>›</Text>
+          )}
         </Pressable>
 
         {/* Group Chat */}
-        <Pressable style={[styles.chatCard, { marginTop: 8 }]}>
+        <Pressable style={[styles.chatCard, { marginTop: 8 }]} onPress={() => onChatPress('group')}>
           <View style={styles.groupAvatarWrap}>
             <View style={[styles.miniAvatar, { backgroundColor: '#EFF6FF', left: 0, zIndex: 3 }]}><Text style={styles.miniText}>JL</Text></View>
             <View style={[styles.miniAvatar, { backgroundColor: '#FEF3C7', left: 10, top: 6, zIndex: 2 }]}><Text style={[styles.miniText, { color: '#92400E' }]}>PP</Text></View>
@@ -61,9 +72,17 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.chatName}>{prop?.name} · All Tenants</Text>
-            <Text style={styles.chatSub} numberOfLines={1}>Group chat coming soon...</Text>
+            <Text style={[styles.chatSub, groupUnreadCount > 0 && styles.chatSubUnread]} numberOfLines={1}>
+              {groupUnreadCount > 0 ? `${groupUnreadCount} new message${groupUnreadCount !== 1 ? 's' : ''}` : 'Property group chat'}
+            </Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
+          {groupUnreadCount > 0 ? (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{groupUnreadCount}</Text>
+            </View>
+          ) : (
+            <Text style={styles.chevron}>›</Text>
+          )}
         </Pressable>
       </View>
 
@@ -126,7 +145,11 @@ const styles = StyleSheet.create({
   miniText: { fontSize: 9, fontWeight: '800', color: Theme.colors.primary },
   chatName: { fontSize: 13, fontWeight: '700', color: Theme.colors.fg },
   chatSub: { fontSize: 11, color: Theme.colors.mutedFg, marginTop: 2 },
+  chatSubUnread: { color: '#2563EB', fontWeight: '600' },
   chevron: { fontSize: 18, color: Theme.colors.mutedFg },
+  
+  unreadBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' },
+  unreadBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
   
   detailsCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: Theme.colors.border, padding: 16 },
   detailsTitle: { fontSize: 12, fontWeight: '700', color: Theme.colors.fg, marginBottom: 8 },

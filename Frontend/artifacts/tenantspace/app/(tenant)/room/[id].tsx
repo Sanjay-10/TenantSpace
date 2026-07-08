@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getAllReadReceipts } from '../../../lib/readReceipts';
 
 import { MyRoomTab } from '../../../components/tenant/room/MyRoomTab';
 import { RentTab } from '../../../components/tenant/room/RentTab';
@@ -29,6 +30,14 @@ export default function TenantRoomScreen() {
   const { profile } = useAuth();
   
   const [activeTab, setActiveTab] = useState<TabKey>('myroom');
+  const [readReceipts, setReadReceipts] = useState<Record<string, string>>({});
+
+  useFocusEffect(
+    useCallback(() => {
+      getAllReadReceipts().then(setReadReceipts);
+      queryClient.invalidateQueries({ queryKey: ['tenantRoomData', id] });
+    }, [id, queryClient])
+  );
 
   const { data: roomData, isLoading, error } = useQuery({
     queryKey: ['tenantRoomData', id],
@@ -75,7 +84,15 @@ export default function TenantRoomScreen() {
         landlordProfile = lp;
       }
 
-      return { ...data, landlordProfile };
+      // Fetch recent messages to calculate unread counts
+      const { data: recentMsgs } = await supabase
+        .from('chat_messages')
+        .select('id, room_id, created_at, sender_id')
+        .eq('property_id', data.property_id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      return { ...data, landlordProfile, recentMsgs: recentMsgs || [] };
     },
     enabled: !!id,
   });
@@ -90,6 +107,9 @@ export default function TenantRoomScreen() {
         queryClient.invalidateQueries({ queryKey: ['tenantRoomData', id] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_memberships', filter: `room_id=eq.${id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['tenantRoomData', id] });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `property_id=eq.${propertyId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['tenantRoomData', id] });
       });
 
@@ -139,6 +159,13 @@ export default function TenantRoomScreen() {
         { text: 'End Tenancy', style: 'destructive', onPress: () => leaveRoomMutation.mutate() }
       ]
     );
+  };
+
+  const handleChatPress = (type: 'private' | 'group') => {
+    router.push({
+      pathname: `/(tenant)/room/${id}/chat`,
+      params: { type }
+    });
   };
 
   if (isLoading) {
@@ -215,15 +242,28 @@ export default function TenantRoomScreen() {
 
       {/* Tab Content Area */}
       <View style={styles.content}>
-        {activeTab === 'myroom' && (
-          <MyRoomTab 
-            roomData={roomData} 
-            landlordProfile={roomData.landlordProfile} 
-            roommates={roommates}
-            onLeaveRoom={handleLeaveRoom}
-            leaving={leaveRoomMutation.isPending}
-          />
-        )}
+        {activeTab === 'myroom' && (() => {
+          const recentMsgs = roomData?.recentMsgs || [];
+          
+          const landlordLastReadDate = new Date(readReceipts[id as string] || '1970-01-01T00:00:00.000Z');
+          const privateUnreadCount = recentMsgs.filter((m: any) => m.room_id === id && new Date(m.created_at) > landlordLastReadDate && m.sender_id !== profile?.id).length;
+
+          const groupLastReadDate = new Date(readReceipts[propertyId as string] || '1970-01-01T00:00:00.000Z');
+          const groupUnreadCount = recentMsgs.filter((m: any) => m.room_id === null && new Date(m.created_at) > groupLastReadDate && m.sender_id !== profile?.id).length;
+
+          return (
+            <MyRoomTab 
+              roomData={roomData} 
+              landlordProfile={roomData.landlordProfile} 
+              roommates={roommates}
+              onLeaveRoom={handleLeaveRoom}
+              leaving={leaveRoomMutation.isPending}
+              onChatPress={handleChatPress}
+              privateUnreadCount={privateUnreadCount}
+              groupUnreadCount={groupUnreadCount}
+            />
+          );
+        })()}
         {activeTab === 'rent' && <RentTab rentAmount={roomData.monthly_rent} />}
         {activeTab === 'docs' && <DocsTab documents={roomData.room_documents} />}
         {activeTab === 'updates' && <UpdatesTab announcements={roomData.properties?.announcements || []} landlordName={roomData.landlordProfile?.full_name} chores={roomData.properties?.chores || []} maintenanceRequests={roomData.properties?.maintenance_requests || []} tenantId={roomData.tenant_memberships?.[0]?.tenant_id} tenantMap={tenantMap} propertyId={roomData.property_id} roomId={id as string} />}
