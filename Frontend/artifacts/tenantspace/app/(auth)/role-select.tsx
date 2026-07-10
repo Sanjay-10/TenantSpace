@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -78,7 +79,7 @@ export default function RoleSelectScreen() {
         {/* Top Navigation Row */}
         <View style={styles.topNavRow}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>←</Text>
+            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
           </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Choose your role</Text>

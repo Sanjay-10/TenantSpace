@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -167,11 +168,11 @@ export default function TenantHomeScreen() {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {hasHomes && (
             <Pressable style={styles.iconButton}>
-              <Text style={styles.iconButtonText}>＋</Text>
+              <Ionicons name="add-outline" size={24} color="#0F172A" />
             </Pressable>
           )}
           <Pressable onPress={() => router.push('/(tenant)/settings')} style={styles.iconButton}>
-            <Text style={styles.iconButtonText}>⚙️</Text>
+            <Ionicons name="settings-outline" size={24} color="#0F172A" />
           </Pressable>
         </View>
       </View>
@@ -189,7 +190,7 @@ export default function TenantHomeScreen() {
               <View style={styles.heroCircle2} />
               
               <View style={styles.heroIconWrap}>
-                <Text style={styles.heroIcon}>🏠</Text>
+                <Ionicons name="business-outline" size={48} color="#fff" />
               </View>
               <Text style={styles.heroTitle}>No homes yet</Text>
               <Text style={styles.heroSub}>Join your first room with the invite code your landlord sent you.</Text>
@@ -215,7 +216,9 @@ export default function TenantHomeScreen() {
             </View>
 
             <View style={styles.helpBox}>
-              <View style={styles.helpIconWrap}><Text style={styles.helpIcon}>💡</Text></View>
+              <View style={styles.helpIconWrap}>
+                <Ionicons name="bulb-outline" size={24} color="#EAB308" />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.helpTitle}>How it works</Text>
                 <Text style={styles.helpText}>Ask your landlord for an invite code. Once you join, you'll see your room, rent, and chats here.</Text>

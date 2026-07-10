@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -172,7 +173,7 @@ export default function EditRequestScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>←</Text>
+          <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
         </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>{canEdit ? 'Edit Request' : 'View Request'}</Text>
@@ -266,13 +267,13 @@ export default function EditRequestScreen() {
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
             {canEdit && (
               <Pressable style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-                <Text style={styles.removePhotoBtnText}>✕</Text>
+                <Ionicons name="close-outline" size={16} color="#fff" />
               </Pressable>
             )}
           </View>
         ) : canEdit ? (
           <Pressable style={styles.attachBtn} onPress={pickImage}>
-            <Text style={styles.attachIcon}>📷</Text>
+            <Ionicons name="images-outline" size={32} color="#475569" style={{ marginRight: 16 }} />
             <View>
               <Text style={styles.attachTitle}>Attach a photo</Text>
               <Text style={styles.attachSub}>Helps the landlord understand the issue faster</Text>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -228,7 +229,7 @@ export default function TenantRoomScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{roomData.properties?.name || 'Property'}</Text>

@@ -10,10 +10,12 @@ import {
   Text,
   TextInput,
   View,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
@@ -82,12 +84,10 @@ export default function LoginScreen() {
           <View style={[styles.circle, styles.circle3]} />
 
           <View style={styles.logoContainer}>
-            <Text style={styles.logoEmoji}>🏠</Text>
+            <Ionicons name="business-outline" size={48} color={Theme.colors.primary} />
           </View>
           <Text style={styles.heroTitle}>TenantSpace</Text>
-          <Text style={styles.heroSubtitle}>
-            Welcome back — sign in to your account.
-          </Text>
+          <Text style={styles.heroSubtitle}>Sign in to your account.</Text>
         </LinearGradient>
 
         {/* Form Card */}
@@ -132,11 +132,8 @@ export default function LoginScreen() {
                   focused === 'password' && styles.inputFocused,
                 ]}
               />
-              <Pressable
-                onPress={() => setShowPw((s) => !s)}
-                style={styles.eyeButton}
-              >
-                <Text style={styles.eyeEmoji}>{showPw ? '🙈' : '👁'}</Text>
+              <Pressable style={styles.eyeButton} onPress={() => setShowPw(!showPw)}>
+                <Ionicons name={showPw ? "eye-off" : "eye"} size={24} color={Theme.colors.mutedFg} />
               </Pressable>
             </View>
           </View>
@@ -162,7 +159,10 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.ctaButtonText}>Sign In</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.ctaButtonText}>Sign In</Text>
+                <Ionicons name="log-in-outline" size={20} color="#fff" />
+              </View>
             )}
           </Pressable>
 
@@ -182,7 +182,7 @@ export default function LoginScreen() {
                 pressed && styles.socialButtonPressed,
               ]}
             >
-              <Text style={styles.socialIcon}>🍎</Text>
+              <Ionicons name="logo-apple" size={24} color="#000" />
               <Text style={styles.socialText}>Apple</Text>
             </Pressable>
 
@@ -193,7 +193,10 @@ export default function LoginScreen() {
                 pressed && styles.socialButtonPressed,
               ]}
             >
-              <Text style={[styles.socialIcon, { color: '#EA4335' }]}>G</Text>
+              <Image 
+                source={require('../../assets/images/Google_Logo.png')} 
+                style={{ width: 18, height: 18, marginRight: 2 }} 
+              />
               <Text style={styles.socialText}>Google</Text>
             </Pressable>
           </View>

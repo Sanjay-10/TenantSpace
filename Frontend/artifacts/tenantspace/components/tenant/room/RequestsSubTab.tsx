@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Image, Alert } from 'react-native';
 import { Theme } from '../../../constants/theme';
 import { useRouter } from 'expo-router';
@@ -79,7 +80,7 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
                       {req.description}
                     </Text>
                     {!!req.photo_url && (
-                      <Text style={{ fontSize: 16 }}>📷</Text>
+                      <Ionicons name="image-outline" size={18} color="#64748B" />
                     )}
                   </View>
 

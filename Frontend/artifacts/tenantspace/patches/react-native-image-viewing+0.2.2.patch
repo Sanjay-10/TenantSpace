@@ -1,0 +1,32 @@
+diff --git a/node_modules/react-native-image-viewing/dist/components/ImageDefaultHeader.js b/node_modules/react-native-image-viewing/dist/components/ImageDefaultHeader.js
+index 33c9def..97c7633 100644
+--- a/node_modules/react-native-image-viewing/dist/components/ImageDefaultHeader.js
++++ b/node_modules/react-native-image-viewing/dist/components/ImageDefaultHeader.js
+@@ -6,7 +6,8 @@
+  *
+  */
+ import React from "react";
+-import { SafeAreaView, Text, TouchableOpacity, StyleSheet } from "react-native";
++import { Text, TouchableOpacity, StyleSheet } from "react-native";
++import { SafeAreaView } from "react-native-safe-area-context";
+ const HIT_SLOP = { top: 16, left: 16, bottom: 16, right: 16 };
+ const ImageDefaultHeader = ({ onRequestClose }) => (<SafeAreaView style={styles.root}>
+     <TouchableOpacity style={styles.closeButton} onPress={onRequestClose} hitSlop={HIT_SLOP}>
+diff --git a/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js b/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js
+new file mode 100644
+index 0000000..77668b6
+--- /dev/null
++++ b/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js
+@@ -0,0 +1,12 @@
++import React from 'react';
++import { View, Text } from 'react-native';
++
++const ImageItem = () => {
++  return (
++    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
++      <Text style={{ color: 'white' }}>Image viewing is not supported on Web.</Text>
++    </View>
++  );
++};
++
++export default ImageItem;

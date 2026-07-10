@@ -68,14 +68,14 @@ export default function RootLayout() {
               <AuthProvider>
                 <ThemeSync />
                 <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="(auth)/login" />
+                  <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+                  <Stack.Screen name="(auth)/login" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="(auth)/signup" />
                   <Stack.Screen name="(auth)/role-select" />
                   {/* Landlord group */}
-                  <Stack.Screen name="(landlord)/home" />
+                  <Stack.Screen name="(landlord)/home" options={{ gestureEnabled: false }} />
                   {/* Tenant group */}
-                  <Stack.Screen name="(tenant)/home" />
+                  <Stack.Screen name="(tenant)/home" options={{ gestureEnabled: false }} />
                 </Stack>
               </AuthProvider>
             </KeyboardProvider>

@@ -2,18 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { Theme } from '../../../constants/theme';
 import { supabase } from '../../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const getIconForChore = (name: string) => {
-  const n = name.toLowerCase();
-  if (n.includes('kitchen')) return '🍳';
-  if (n.includes('bath')) return '🚿';
-  if (n.includes('bin')) return '🗑️';
-  if (n.includes('hall')) return '🧹';
-  if (n.includes('garden')) return '🪴';
-  return '📋';
-};
+// Removed emoji helper
 
 export function DutiesSubTab({ chores = [], tenantId, tenantMap = {} }: { chores?: any[], tenantId?: string, tenantMap?: Record<string, any> }) {
   const [loadingChore, setLoadingChore] = useState<string | null>(null);
@@ -75,7 +68,7 @@ export function DutiesSubTab({ chores = [], tenantId, tenantMap = {} }: { chores
             <Pressable key={chore.id} style={styles.choreCard} onPress={() => setSelectedChore(chore)}>
               <View style={styles.choreMainRow}>
                 <View style={styles.choreIconBox}>
-                  <Text style={styles.choreIcon}>{getIconForChore(chore.name)}</Text>
+                  <Ionicons name="clipboard-outline" size={20} color={Theme.colors.fg} />
                 </View>
 
                 <View style={styles.choreInfo}>

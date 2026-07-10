@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl, Image, StyleSheet, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { C, styles as baseStyles } from './propertyStyles';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image as ExpoImage } from 'expo-image';
+import { getAuthenticatedMediaUrl } from '../../lib/storage';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -32,6 +35,13 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
   const queryClient = useQueryClient();
   const [selectedReq, setSelectedReq] = useState<any>(null);
   const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, string>>({});
+  const [authToken, setAuthToken] = useState('');
+  
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthToken(data.session?.access_token || ''));
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => setAuthToken(session?.access_token || ''));
+    return () => authListener.subscription.unsubscribe();
+  }, []);
   
   const syncOfflineQueue = async () => {
     try {
@@ -230,7 +240,7 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
                         {req.description}
                       </Text>
                       {hasPhoto && (
-                        <Text style={{ fontSize: 16 }}>📷</Text>
+                        <Ionicons name="image-outline" size={18} color="#64748B" />
                       )}
                     </View>
                   </View>
@@ -308,7 +318,15 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
                   </Text>
 
                   {selectedReq.photo_url && (
-                    <Image source={{ uri: selectedReq.photo_url }} style={styles.modalPhoto} />
+                    <ExpoImage 
+                      source={{ 
+                        uri: getAuthenticatedMediaUrl('maintenance-photos', selectedReq.photo_url),
+                        headers: { Authorization: `Bearer ${authToken}` }
+                      }} 
+                      style={styles.modalPhoto} 
+                      contentFit="cover"
+                      transition={200}
+                    />
                   )}
                 </ScrollView>
               );

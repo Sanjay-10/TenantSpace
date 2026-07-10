@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { Theme } from '../../constants/theme';
 import { useQuery } from '@tanstack/react-query';
 
 const C = {
@@ -153,7 +155,7 @@ export default function LandlordHomeScreen() {
             <View style={styles.emptyCircle2} />
 
             <View style={styles.emptyIconContainer}>
-              <Text style={styles.emptyIconText}>🏘️</Text>
+              <Ionicons name="business-outline" size={48} color={Theme.colors.primary} />
             </View>
             <Text style={styles.emptyHeroTitle}>No properties yet</Text>
             <Text style={styles.emptyHeroSubtitle}>
@@ -166,7 +168,7 @@ export default function LandlordHomeScreen() {
             style={({ pressed }) => [styles.emptyPrimaryCta, pressed && { opacity: 0.85 }]}
             onPress={() => router.push('/(landlord)/property/add')}
           >
-            <Text style={styles.emptyPrimaryCtaIcon}>+</Text>
+            <Ionicons name="add-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.emptyPrimaryCtaText}>Add Your First Property</Text>
           </Pressable>
 
@@ -175,14 +177,14 @@ export default function LandlordHomeScreen() {
             <Text style={styles.featuresTitle}>WHAT YOU CAN DO</Text>
             <View style={styles.featuresList}>
               {[
-                { icon: "🚪", title: "Manage rooms", body: "Add rooms with rent, deposit, and details." },
-                { icon: "👥", title: "Invite tenants", body: "Generate invite codes for tenants to join." },
-                { icon: "💸", title: "Track rent", body: "See who's paid and who's pending each month." },
-                { icon: "🛠️", title: "Handle requests", body: "Receive and resolve maintenance requests." },
+                { icon: "door-open", title: "Manage rooms", body: "Add rooms with rent, deposit, and details." },
+                { icon: "account-group", title: "Invite tenants", body: "Generate invite codes for tenants to join." },
+                { icon: "currency-usd", title: "Track rent", body: "See who's paid and who's pending each month." },
+                { icon: "wrench", title: "Handle requests", body: "Receive and resolve maintenance requests." },
               ].map(f => (
                 <View key={f.title} style={styles.featureRow}>
                   <View style={styles.featureIconContainer}>
-                    <Text style={styles.featureIconText}>{f.icon}</Text>
+                    <Ionicons name={f.icon as any} size={24} color={Theme.colors.primary} />
                   </View>
                   <View style={styles.featureTextContainer}>
                     <Text style={styles.featureTitleText}>{f.title}</Text>
@@ -230,7 +232,7 @@ export default function LandlordHomeScreen() {
             style={styles.headerIconButton}
             onPress={() => router.push('/(landlord)/settings')}
           >
-            <Text style={styles.headerIconText}>⚙️</Text>
+            <Ionicons name="settings-outline" size={24} color="#0F172A" />
           </Pressable>
         </View>
       </View>
@@ -320,7 +322,7 @@ export default function LandlordHomeScreen() {
                   ]}
                 >
                   <View style={styles.pastPropIconContainer}>
-                    <Text style={styles.pastPropIcon}>🏠</Text>
+                    <View style={styles.pastIconWrap}><Ionicons name="business-outline" size={24} color="#E2E8F0" /></View>
                   </View>
                   <View style={styles.pastPropTextContainer}>
                     <Text style={styles.pastPropName} numberOfLines={1}>{p.name}</Text>

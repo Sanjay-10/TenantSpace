@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
@@ -23,6 +25,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -113,7 +116,7 @@ export default function SignUpScreen() {
         <View style={styles.topNavRow}>
           <Link href="/(auth)/login" asChild>
             <Pressable style={styles.backButton}>
-              <Text style={styles.backButtonText}>←</Text>
+              <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
             </Pressable>
           </Link>
           <View style={styles.headerTitleContainer}>
@@ -138,7 +141,7 @@ export default function SignUpScreen() {
           <View style={[styles.circle, styles.circle2]} />
 
           <View style={styles.sparkleContainer}>
-            <Text style={styles.sparkleEmoji}>✨</Text>
+            <Ionicons name="business-outline" size={28} color={Theme.colors.primary} />
           </View>
           <Text style={styles.heroTitleText}>Join TenantSpace</Text>
           <Text style={styles.heroSubtitle}>
@@ -210,7 +213,7 @@ export default function SignUpScreen() {
                 onPress={() => setShowPw((s) => !s)}
                 style={styles.eyeButton}
               >
-                <Text style={styles.eyeEmoji}>{showPw ? '🙈' : '👁'}</Text>
+                <Ionicons name={showPw ? 'eye-off' : 'eye'} size={22} color={Theme.colors.mutedFg} />
               </Pressable>
             </View>
           </View>
@@ -230,22 +233,31 @@ export default function SignUpScreen() {
                 </Text>
               )}
             </View>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              onFocus={() => setFocused('confirmPassword')}
-              onBlur={() => setFocused(null)}
-              placeholder="••••••••"
-              placeholderTextColor={Theme.colors.mutedFg}
-              secureTextEntry={!showPw}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.input,
-                focused === 'confirmPassword' && styles.inputFocused,
-                passwordsEntered && !passwordsMatch && styles.inputError,
-              ]}
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onFocus={() => setFocused('confirmPassword')}
+                onBlur={() => setFocused(null)}
+                placeholder="••••••••"
+                placeholderTextColor={Theme.colors.mutedFg}
+                secureTextEntry={!showConfirmPw}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  focused === 'confirmPassword' && styles.inputFocused,
+                  passwordsEntered && !passwordsMatch && styles.inputError,
+                ]}
+              />
+              <Pressable
+                onPress={() => setShowConfirmPw((s) => !s)}
+                style={styles.eyeButton}
+              >
+                <Ionicons name={showConfirmPw ? 'eye-off' : 'eye'} size={22} color={Theme.colors.mutedFg} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Continue CTA */}
@@ -264,6 +276,41 @@ export default function SignUpScreen() {
               <Text style={styles.ctaButtonText}>Continue →</Text>
             )}
           </Pressable>
+
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Social Auth */}
+          <View style={styles.socialContainer}>
+            <Pressable
+              onPress={() => Alert.alert('Social Auth', 'Apple Sign Up')}
+              style={({ pressed }) => [
+                styles.socialButton,
+                pressed && styles.socialButtonPressed,
+              ]}
+            >
+              <Ionicons name="logo-apple" size={24} color="#000" />
+              <Text style={styles.socialText}>Apple</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => Alert.alert('Social Auth', 'Google Sign Up')}
+              style={({ pressed }) => [
+                styles.socialButton,
+                pressed && styles.socialButtonPressed,
+              ]}
+            >
+              <Image
+                source={require('../../assets/images/Google_Logo.png')}
+                style={{ width: 18, height: 18, marginRight: 2 }}
+              />
+              <Text style={styles.socialText}>Google</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Footer */}
@@ -496,6 +543,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: Theme.fonts.bold,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Theme.colors.border,
+  },
+  dividerText: {
+    fontSize: 11,
+    color: Theme.colors.mutedFg,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: Theme.fonts.semibold,
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  socialButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  socialButtonPressed: {
+    backgroundColor: Theme.colors.bg,
+  },
+  socialText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.fg,
     fontFamily: Theme.fonts.bold,
   },
   footer: {

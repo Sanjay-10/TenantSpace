@@ -2,18 +2,19 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../../constants/theme';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageOrVideo, uploadFileToSupabase } from '../../../lib/storage';
 
 const CATEGORIES = [
-  { id: 'plumbing', label: 'Plumbing', icon: '🚿' },
-  { id: 'electrical', label: 'Electrical', icon: '⚡' },
-  { id: 'heating', label: 'Heating', icon: '🔥' },
-  { id: 'appliance', label: 'Appliance', icon: '📻' },
-  { id: 'locks', label: 'Locks / Keys', icon: '🔑' },
-  { id: 'other', label: 'Other', icon: '🔧' }
+  { id: 'plumbing', label: 'Plumbing', icon: 'water-outline' },
+  { id: 'electrical', label: 'Electrical', icon: 'flash-outline' },
+  { id: 'heating', label: 'Heating', icon: 'flame-outline' },
+  { id: 'appliance', label: 'Appliance', icon: 'radio-outline' },
+  { id: 'locks', label: 'Locks / Keys', icon: 'key-outline' },
+  { id: 'other', label: 'Other', icon: 'build-outline' }
 ];
 
 const PRIORITIES = [
@@ -32,17 +33,13 @@ export default function NewRequestScreen() {
   const [priority, setPriority] = useState<string>('normal');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [pickedFile, setPickedFile] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.5,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
+    const file = await pickImageOrVideo();
+    if (file && file.type === 'image') {
+      setPickedFile(file);
     }
   };
 
@@ -60,25 +57,15 @@ export default function NewRequestScreen() {
     try {
       let finalPhotoUrl = null;
 
-      // Try to upload the photo to Supabase storage if we have one
-      if (photoUri && !photoUri.startsWith('http')) {
-        try {
-          const res = await fetch(photoUri);
-          const blob = await res.blob();
-          const fileExt = photoUri.split('.').pop() || 'jpg';
-          const fileName = `request_${Date.now()}.${fileExt}`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage.from('maintenance').upload(fileName, blob);
-          if (!uploadError && uploadData) {
-            finalPhotoUrl = supabase.storage.from('maintenance').getPublicUrl(fileName).data.publicUrl;
-          } else {
-            console.log('Upload error (falling back to local uri):', uploadError);
-            finalPhotoUrl = photoUri; // fallback
-          }
-        } catch (e) {
-          console.log('Fetch error (falling back to local uri):', e);
-          finalPhotoUrl = photoUri; // fallback
+      // Upload the photo to our new strict RLS bucket using the storage utility
+      if (pickedFile) {
+        const { url, error: uploadError } = await uploadFileToSupabase('maintenance-photos', propertyId, pickedFile);
+        if (uploadError) {
+          Alert.alert('Upload Failed', 'We could not upload the image.');
+          setIsSubmitting(false);
+          return;
         }
+        finalPhotoUrl = url;
       }
 
       const { error } = await supabase.from('maintenance_requests').insert([{
@@ -108,7 +95,7 @@ export default function NewRequestScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>←</Text>
+          <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
         </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>New Request</Text>
@@ -129,7 +116,11 @@ export default function NewRequestScreen() {
                 onPress={() => setCategory(cat.id)}
                 style={[styles.gridItem, isActive && styles.gridItemActive]}
               >
-                <Text style={styles.gridIcon}>{cat.icon}</Text>
+                <Ionicons 
+                    name={cat.icon as any} 
+                    size={28} 
+                    color={isActive ? Theme.colors.primary : Theme.colors.fg} 
+                  />
                 <Text style={[styles.gridLabel, isActive && styles.gridLabelActive]}>{cat.label}</Text>
               </Pressable>
             );
@@ -187,16 +178,16 @@ export default function NewRequestScreen() {
         />
 
         {/* Photo Attachment */}
-        {photoUri ? (
+        {pickedFile ? (
           <View style={styles.photoContainer}>
-            <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-            <Pressable style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-              <Text style={styles.removePhotoBtnText}>✕</Text>
+            <Image source={{ uri: pickedFile.uri }} style={styles.photoPreview} />
+            <Pressable style={styles.removePhotoBtn} onPress={() => setPickedFile(null)}>
+              <Ionicons name="close-outline" size={16} color="#fff" />
             </Pressable>
           </View>
         ) : (
           <Pressable style={styles.attachBtn} onPress={pickImage}>
-            <Text style={styles.attachIcon}>📷</Text>
+            <Ionicons name="images-outline" size={32} color="#475569" style={{ marginRight: 16 }} />
             <View>
               <Text style={styles.attachTitle}>Attach a photo</Text>
               <Text style={styles.attachSub}>Helps the landlord understand the issue faster</Text>

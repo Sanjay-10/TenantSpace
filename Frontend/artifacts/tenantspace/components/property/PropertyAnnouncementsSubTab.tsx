@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { C, styles } from './propertyStyles';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   announcements: any[];
@@ -93,7 +94,9 @@ export function PropertyAnnouncementsSubTab({
           <View key={ann.id} style={styles.annCard}>
             <View style={styles.annHeaderRow}>
               <View style={styles.annHeaderLeft}>
-                <Text style={styles.annIcon}>📢</Text>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isExpired ? C.muted : '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="megaphone-outline" size={18} color={isExpired ? C.mutedFg : '#DC2626'} />
+                </View>
                 <Text style={styles.annDate}>{dateStr}</Text>
               </View>
               <View style={[styles.annBadge, { backgroundColor: isExpired ? C.muted : "#D1FAE5" }]}>

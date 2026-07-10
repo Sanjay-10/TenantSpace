@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Animated,
@@ -6,11 +7,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../contexts/AuthContext';
+import { getAllReadReceipts } from '../../../lib/readReceipts';
+import { useCallback } from 'react';
 
 import NewAnnouncementModal from '../../../components/property/NewAnnouncementModal';
 import AddRoomModal from '../../../components/property/AddRoomModal';
@@ -25,6 +29,7 @@ export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { profile } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabKey>('rooms');
   const [updatesSubTab, setUpdatesSubTab] = useState('Duties');
@@ -132,6 +137,41 @@ export default function PropertyDetailScreen() {
     enabled: !!id
   });
 
+  const { data: totalUnread = 0 } = useQuery({
+    queryKey: ['propertyUnreadCount', id],
+    queryFn: async () => {
+      if (!id || !profile?.id) return 0;
+      
+      const receipts = await getAllReadReceipts();
+      const { data: recentMsgs } = await supabase
+        .from('chat_messages')
+        .select('room_id, created_at, sender_id')
+        .eq('property_id', id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+        
+      if (!recentMsgs) return 0;
+      
+      let unread = 0;
+      for (const msg of recentMsgs) {
+        if (msg.sender_id === profile.id) continue;
+        const roomIdKey = msg.room_id || (id as string);
+        const lastRead = new Date(receipts[roomIdKey] || '1970-01-01T00:00:00.000Z');
+        if (new Date(msg.created_at) > lastRead) {
+          unread++;
+        }
+      }
+      return unread;
+    },
+    enabled: !!id && !!profile?.id,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['propertyUnreadCount', id] });
+    }, [id, queryClient])
+  );
+
   const property = data?.property;
   const rooms = data?.rooms || [];
   const tenantMap = data?.tenantMap || {};
@@ -154,6 +194,9 @@ export default function PropertyDetailScreen() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_memberships' }, () => {
         queryClient.invalidateQueries({ queryKey: ['propertyData', id] });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `property_id=eq.${id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['propertyUnreadCount', id] });
       })
       .subscribe();
 
@@ -297,7 +340,7 @@ export default function PropertyDetailScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.headerIconButton}>
-            <Text style={styles.headerIconText}>←</Text>
+            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
           </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{property.name}</Text>
@@ -398,10 +441,12 @@ export default function PropertyDetailScreen() {
 
         <View style={styles.fabContainerRight} pointerEvents="box-none">
           <Pressable style={styles.fabChat} onPress={() => router.push(`/(landlord)/property/${id}/chats`)}>
-            <Text style={styles.fabChatIcon}>💬</Text>
-            <View style={styles.fabChatBadge}>
-              <Text style={styles.fabChatBadgeText}>2</Text>
-            </View>
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+            {totalUnread > 0 && (
+              <View style={styles.fabChatBadge}>
+                <Text style={styles.fabChatBadgeText}>{totalUnread}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>

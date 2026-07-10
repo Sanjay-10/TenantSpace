@@ -20,7 +20,15 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to automatically save downloaded chat media directly to your gallery.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save chat photos and videos to your gallery.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

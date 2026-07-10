@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -146,9 +147,10 @@ export default function LandlordChatsHub() {
       color,
       latestText: latestMsg ? `${(latestMsg.profiles as any)?.full_name?.split(' ')[0]}: ${latestMsg.text}` : 'No messages yet',
       time: latestMsg ? formatTime(latestMsg.created_at) : '',
-      unreadCount
+      unreadCount,
+      timestamp: latestMsg ? new Date(latestMsg.created_at).getTime() : 0
     };
-  });
+  }).sort((a, b) => b.timestamp - a.timestamp);
   
   const filteredItems = filter === 'unread' ? chatItems.filter(c => c.unreadCount > 0) : chatItems;
   const totalUnread = chatItems.reduce((acc, curr) => acc + curr.unreadCount, 0);
@@ -177,18 +179,20 @@ export default function LandlordChatsHub() {
             <Text style={styles.roomName}>{item.name}</Text>
             <Text style={styles.tenantCount}>{item.tenantCount} tenant{item.tenantCount !== 1 && 's'}</Text>
           </View>
-          <Text style={[styles.timeText, item.unreadCount > 0 && styles.timeTextUnread]}>{item.time}</Text>
         </View>
         <Text style={[styles.msgPreview, item.unreadCount > 0 && styles.msgPreviewUnread]} numberOfLines={1}>
           {item.latestText}
         </Text>
       </View>
       
-      {item.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-        </View>
-      )}
+      <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 40, gap: 4 }}>
+        <Text style={[styles.timeText, item.unreadCount > 0 && styles.timeTextUnread]}>{item.time}</Text>
+        {item.unreadCount > 0 ? (
+          <View style={[styles.unreadBadge, { marginLeft: 0 }]}>
+            <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+          </View>
+        ) : <View style={{ height: 20 }} />}
+      </View>
     </Pressable>
   );
 
@@ -198,15 +202,12 @@ export default function LandlordChatsHub() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>Room Chats</Text>
-            <Text style={styles.headerSub}>{property.name} · {rooms.length} rooms · {totalUnread} unread</Text>
+            <Text style={styles.headerSub}>{property.name} · {rooms.length} rooms</Text>
           </View>
-          <Pressable style={styles.searchBtn}>
-            <Text style={styles.searchIcon}>🔍</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -235,18 +236,20 @@ export default function LandlordChatsHub() {
                     <Text style={styles.roomName}>{property.name}</Text>
                     <Text style={styles.tenantCount}>All tenants</Text>
                   </View>
-                  <Text style={[styles.timeText, groupUnreadCount > 0 && styles.timeTextUnread]}>{groupTime}</Text>
                 </View>
                 <Text style={[styles.msgPreview, groupUnreadCount > 0 && styles.msgPreviewUnread]} numberOfLines={1}>
                   {groupPreview}
                 </Text>
               </View>
               
-              {groupUnreadCount > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>{groupUnreadCount}</Text>
-                </View>
-              )}
+              <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 40, gap: 4 }}>
+                <Text style={[styles.timeText, groupUnreadCount > 0 && styles.timeTextUnread]}>{groupTime}</Text>
+                {groupUnreadCount > 0 ? (
+                  <View style={[styles.unreadBadge, { marginLeft: 0 }]}>
+                    <Text style={styles.unreadBadgeText}>{groupUnreadCount}</Text>
+                  </View>
+                ) : <View style={{ height: 20 }} />}
+              </View>
             </Pressable>
             
             <View style={[styles.sectionHeading, { marginTop: 5 }]}>
@@ -256,11 +259,6 @@ export default function LandlordChatsHub() {
         )}
       />
 
-      <View style={styles.fabContainer}>
-        <Pressable style={styles.fab}>
-          <Text style={styles.fabIcon}>✏️</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -297,18 +295,14 @@ const styles = StyleSheet.create({
   
   chatInfo: { flex: 1, paddingRight: 8 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  roomName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
-  tenantCount: { fontSize: 11, color: '#94A3B8', fontWeight: '500' },
-  timeText: { fontSize: 11, color: '#94A3B8' },
-  timeTextUnread: { color: '#2563EB', fontWeight: '700' },
+  roomName: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  tenantCount: { fontSize: 12, color: '#64748B', fontWeight: '500' },
+  timeText: { fontSize: 12, color: '#94A3B8' },
+  timeTextUnread: { color: '#3B82F6', fontWeight: '700' },
   
-  msgPreview: { fontSize: 14, color: '#64748B' },
+  msgPreview: { fontSize: 14, color: '#64748B', marginTop: 3 },
   msgPreviewUnread: { color: '#0F172A', fontWeight: '600' },
   
-  unreadBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' },
-  unreadBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
-  
-  fabContainer: { position: 'absolute', bottom: 30, right: 20 },
-  fab: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
-  fabIcon: { fontSize: 20, color: '#fff' }
+  unreadBadge: { backgroundColor: '#3B82F6', minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginLeft: 8 },
+  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' }
 });

@@ -57,8 +57,15 @@
     "@supabase/supabase-js": "^2.48.0",
     "@tanstack/query-async-storage-persister": "^5.101.2",
     "@tanstack/react-query-persist-client": "^5.101.2",
+    "base64-arraybuffer": "^1.0.2",
     "expo-clipboard": "~8.0.8",
     "expo-document-picker": "~14.0.8",
+    "expo-file-system": "^57.0.0",
+    "expo-intent-launcher": "~13.0.8",
+    "expo-media-library": "~18.2.1",
+    "expo-sharing": "~14.0.8",
+    "expo-video-thumbnails": "~10.0.8",
+    "react-native-image-viewing": "^0.2.2",
     "react-native-web": "^0.21.0"
   }
 }

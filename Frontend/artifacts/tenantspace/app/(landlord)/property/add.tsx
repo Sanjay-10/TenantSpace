@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -154,7 +155,7 @@ export default function AddPropertyScreen() {
               onPress={() => (step === 'rooms' ? setStep('details') : router.back())}
               style={styles.backButton}
             >
-              <Text style={styles.backButtonText}>←</Text>
+              <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
             </Pressable>
           ) : (
             <View style={{ width: 34 }} />

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -237,7 +238,7 @@ export default function RoomDetailScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>←</Text>
+          <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
         </Pressable>
         <View style={styles.headerTitles}>
           <Text style={styles.headerTitle}>{roomData.name}</Text>

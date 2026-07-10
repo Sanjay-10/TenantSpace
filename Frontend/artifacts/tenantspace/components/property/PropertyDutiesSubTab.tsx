@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import { C, styles } from './propertyStyles';
 
 interface Props {
@@ -17,15 +18,7 @@ const statusStyle: Record<string, { bg: string; fg: string; label: string }> = {
   missed:  { bg: "#FEE2E2",  fg: "#991B1B",  label: "Missed"   },
 };
 
-const getIconForChore = (name: string) => {
-  const n = name.toLowerCase();
-  if (n.includes('kitchen')) return '🍳';
-  if (n.includes('bath')) return '🚿';
-  if (n.includes('bin')) return '🗑️';
-  if (n.includes('hall')) return '🧹';
-  if (n.includes('garden')) return '🪴';
-  return '📋';
-};
+// Removed emoji helper
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -91,7 +84,7 @@ export function PropertyDutiesSubTab({
           >
             <View style={styles.choreMainRow}>
               <View style={styles.choreIconBox}>
-                <Text style={styles.choreIcon}>{getIconForChore(chore.name)}</Text>
+                <Ionicons name="clipboard-outline" size={20} color={C.fg} />
               </View>
 
               <View style={styles.choreInfo}>

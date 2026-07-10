@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Theme } from '../../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlord' }: { announcements?: any[], landlordName?: string }) {
   if (!announcements || announcements.length === 0) {
@@ -31,7 +32,7 @@ export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlo
           <View key={ann.id} style={[styles.annCard, !isExpired ? styles.annCardActive : styles.annCardExpired]}>
             <View style={styles.headerRow}>
               <View style={[styles.iconWrap, isExpired && { backgroundColor: '#F1F5F9' }]}>
-                <Text style={[{ fontSize: 16 }, isExpired && { opacity: 0.5 }]}>📢</Text>
+                <Ionicons name="megaphone-outline" size={18} color={isExpired ? Theme.colors.mutedFg : '#DC2626'} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.landlordName, isExpired && { color: Theme.colors.mutedFg }]}>{landlordName}</Text>
@@ -64,10 +65,10 @@ const styles = StyleSheet.create({
   
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 2 },
   badgeActive: { backgroundColor: '#ECFDF5' },
-  badgeExpired: { backgroundColor: '#E2E8F0' },
+  badgeExpired: { backgroundColor: '#F1F5F9' },
   badgeText: { fontSize: 11, fontWeight: '700' },
   badgeTextActive: { color: '#065F46' },
-  badgeTextExpired: { color: '#64748B' },
+  badgeTextExpired: { color: '#475569' },
   
   annTitle: { fontSize: 15, fontWeight: '700', color: Theme.colors.fg, marginBottom: 6 },
   annBody: { fontSize: 13, color: Theme.colors.mutedFg, lineHeight: 20 },

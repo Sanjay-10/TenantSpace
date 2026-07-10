@@ -1,6 +1,7 @@
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { router } from 'expo-router';
 
 export interface Profile {
   id: string;
@@ -67,6 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    // Wipe entire navigation stack, then land on login
+    router.dismissAll();
+    router.replace('/(auth)/login');
   };
 
   // Switch role between landlord and tenant

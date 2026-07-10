@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -186,7 +187,7 @@ export default function AssignChoreScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
-            <Text style={styles.headerBackText}>←</Text>
+            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
           </Pressable>
           <View>
             <Text style={styles.headerTitle}>{choreId ? 'Edit Chore' : 'Assign Chore'}</Text>
