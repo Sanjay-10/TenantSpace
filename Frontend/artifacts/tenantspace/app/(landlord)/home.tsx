@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { getInitials } from '../../components/ui/AvatarCluster';
 import { Theme } from '../../constants/theme';
 import { useQuery } from '@tanstack/react-query';
 
@@ -82,6 +83,7 @@ export default function LandlordHomeScreen() {
           id: property.id,
           name: property.name,
           address: property.address,
+          property_type: property.property_type,
           rooms: roomCount,
           tenants: tenantCount,
           rent: propertyExpected,
@@ -102,8 +104,8 @@ export default function LandlordHomeScreen() {
   };
 
   const initials = profile?.full_name
-    ? profile.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    : 'SM';
+    ? getInitials(profile.full_name)
+    : 'L';
 
   const handleSwitchToTenant = async () => {
     try {
@@ -132,8 +134,8 @@ export default function LandlordHomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greetingText}>Welcome 👋</Text>
-            <Text style={styles.nameText}>{profile?.full_name || 'Landlord'}</Text>
+            <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={styles.nameText}>Welcome</Text>
           </View>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -166,7 +168,7 @@ export default function LandlordHomeScreen() {
           {/* Primary CTA */}
           <Pressable 
             style={({ pressed }) => [styles.emptyPrimaryCta, pressed && { opacity: 0.85 }]}
-            onPress={() => router.push('/(landlord)/property/add')}
+            onPress={() => router.navigate('/(landlord)/property/add')}
           >
             <Ionicons name="add-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.emptyPrimaryCtaText}>Add Your First Property</Text>
@@ -177,10 +179,10 @@ export default function LandlordHomeScreen() {
             <Text style={styles.featuresTitle}>WHAT YOU CAN DO</Text>
             <View style={styles.featuresList}>
               {[
-                { icon: "door-open", title: "Manage rooms", body: "Add rooms with rent, deposit, and details." },
-                { icon: "account-group", title: "Invite tenants", body: "Generate invite codes for tenants to join." },
-                { icon: "currency-usd", title: "Track rent", body: "See who's paid and who's pending each month." },
-                { icon: "wrench", title: "Handle requests", body: "Receive and resolve maintenance requests." },
+                { icon: "bed-outline", title: "Manage rooms", body: "Add rooms with rent, deposit, and details." },
+                { icon: "people-outline", title: "Invite tenants", body: "Generate invite codes for tenants to join." },
+                { icon: "cash-outline", title: "Track rent", body: "See who's paid and who's pending each month." },
+                { icon: "construct-outline", title: "Handle requests", body: "Receive and resolve maintenance requests." },
               ].map(f => (
                 <View key={f.title} style={styles.featureRow}>
                   <View style={styles.featureIconContainer}>
@@ -202,6 +204,7 @@ export default function LandlordHomeScreen() {
               <Text style={styles.footerHintLink} onPress={handleSwitchToTenant}>Switch to tenant mode</Text>
             </Text>
           </View>
+        <View style={{ height: 80 }} />
         </ScrollView>
       </View>
     );
@@ -218,19 +221,19 @@ export default function LandlordHomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greetingText}>Welcome back 👋</Text>
+          <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
           <Text style={styles.nameText}>My Properties</Text>
         </View>
         <View style={styles.activeHeaderActions}>
           <Pressable 
             style={styles.headerIconButton}
-            onPress={() => router.push('/(landlord)/property/add')}
+            onPress={() => router.navigate('/(landlord)/property/add')}
           >
             <Text style={styles.headerIconText}>+</Text>
           </Pressable>
           <Pressable 
             style={styles.headerIconButton}
-            onPress={() => router.push('/(landlord)/settings')}
+            onPress={() => router.navigate('/(landlord)/settings')}
           >
             <Ionicons name="settings-outline" size={24} color="#0F172A" />
           </Pressable>
@@ -248,7 +251,7 @@ export default function LandlordHomeScreen() {
             {current.map(p => (
               <Pressable 
                 key={p.id}
-                onPress={() => router.push(`/(landlord)/property/${p.id}`)}
+                onPress={() => router.navigate(`/(landlord)/property/${p.id}`)}
                 style={({ pressed }) => [
                   styles.activePropCard,
                   pressed && { opacity: 0.95 }
@@ -269,8 +272,16 @@ export default function LandlordHomeScreen() {
                       <Text style={styles.activePropName}>{p.name}</Text>
                       <Text style={styles.activePropAddress}>{p.address}</Text>
                     </View>
-                    <View style={styles.activeBadge}>
-                      <Text style={styles.activeBadgeText}>● Active</Text>
+                    <View style={[styles.activeBadge, { flexDirection: 'row', alignItems: 'center' }]}>
+                      <Ionicons 
+                        name={p.property_type === 'Shared House' ? 'home' : p.property_type === 'Flat' ? 'business' : p.property_type === 'Studio' ? 'bed' : 'grid'} 
+                        size={12} 
+                        color="#fff" 
+                        style={{ marginRight: 4 }} 
+                      />
+                      <Text style={styles.activeBadgeText}>
+                        {p.property_type === 'Shared House' ? 'SHARED' : p.property_type === 'Flat' ? 'FLAT' : p.property_type === 'Studio' ? 'STUDIO' : 'OTHER'}
+                      </Text>
                     </View>
                   </View>
 
@@ -315,14 +326,14 @@ export default function LandlordHomeScreen() {
               {previous.map(p => (
                 <Pressable
                   key={p.id}
-                  onPress={() => router.push(`/(landlord)/property/${p.id}`)}
+                  onPress={() => router.navigate(`/(landlord)/property/${p.id}`)}
                   style={({ pressed }) => [
                     styles.pastPropCard,
                     pressed && { opacity: 0.95 }
                   ]}
                 >
                   <View style={styles.pastPropIconContainer}>
-                    <View style={styles.pastIconWrap}><Ionicons name="business-outline" size={24} color="#E2E8F0" /></View>
+                    <Ionicons name="business-outline" size={24} color="#E2E8F0" />
                   </View>
                   <View style={styles.pastPropTextContainer}>
                     <Text style={styles.pastPropName} numberOfLines={1}>{p.name}</Text>
@@ -335,6 +346,7 @@ export default function LandlordHomeScreen() {
             </View>
           </View>
         )}
+      <View style={{ height: 80 }} />
       </ScrollView>
     </View>
   );
@@ -632,7 +644,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: C.success,
   },
   activeBadgeText: {
     fontSize: 11,
@@ -725,3 +737,5 @@ const styles = StyleSheet.create({
     color: C.mutedFg,
   },
 });
+
+

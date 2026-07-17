@@ -4,7 +4,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import { supabase, supabaseUrl } from './supabase';
 import { Alert } from 'react-native';
 
-export type BucketName = 'chat-media' | 'property-docs' | 'maintenance-photos';
+export type BucketName = 'chat-media' | 'property-docs' | 'maintenance-photos' | 'announcements-media';
 
 export interface PickedMedia {
   uri: string;

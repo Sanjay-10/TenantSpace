@@ -20,6 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 
 type Step = 'details' | 'rooms' | 'done';
 type PropertyType = 'Shared House' | 'Flat' | 'Studio' | 'Other';
@@ -41,6 +42,7 @@ export default function AddPropertyScreen() {
   const [roomCount, setRoomCount] = useState(3);
   const [roomNames, setRoomNames] = useState<string[]>(['Room 1', 'Room 2', 'Room 3']);
   const [defaultRent, setDefaultRent] = useState('800');
+  const [roomRents, setRoomRents] = useState<string[]>(['800', '800', '800']);
   
   // Step 3: Success
   const [createdRooms, setCreatedRooms] = useState<GeneratedRoom[]>([]);
@@ -50,6 +52,7 @@ export default function AddPropertyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleNextStep = () => {
     if (!name.trim() || !address.trim()) {
@@ -87,6 +90,7 @@ export default function AddPropertyScreen() {
           name: name.trim(),
           address: address.trim(),
           property_type: propertyType,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         })
         .select()
         .single();
@@ -100,10 +104,12 @@ export default function AddPropertyScreen() {
         const code = generateCode(name.trim(), i);
         generatedList.push({ name: roomName, code });
         
+        const rRent = parseInt(roomRents[i]) || parseInt(defaultRent) || 800;
+        
         return {
           property_id: propData.id,
           name: roomName,
-          monthly_rent: rentVal,
+          monthly_rent: rRent,
           invite_code: code,
           bills_included: true,
         };
@@ -115,6 +121,9 @@ export default function AddPropertyScreen() {
         .insert(roomsToInsert);
 
       if (roomsError) throw roomsError;
+
+      // Invalidate the landlord properties cache so the dashboard refreshes automatically
+      queryClient.invalidateQueries({ queryKey: ['landlordProperties', profile.id] });
 
       // 4. Trigger Success State
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -205,7 +214,7 @@ export default function AddPropertyScreen() {
               style={styles.heroCard}
             >
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeEmoji}>🏘️</Text>
+                <Ionicons name="home-outline" size={24} color={Theme.colors.primary} />
               </View>
               <Text style={styles.heroTitle}>Create Property</Text>
               <Text style={styles.heroSubtitle}>
@@ -218,10 +227,10 @@ export default function AddPropertyScreen() {
               <Text style={styles.label}>Property Type</Text>
               <View style={styles.grid}>
                 {[
-                  { key: 'Shared House', label: 'HMO / Shared House', icon: '🏠' },
-                  { key: 'Flat', label: 'Flat / Apartment', icon: '🏢' },
-                  { key: 'Studio', label: 'Studio Room', icon: '🛋️' },
-                  { key: 'Other', label: 'Other Type', icon: '🏘️' },
+                  { key: 'Shared House', label: 'Shared House', icon: 'home-outline' },
+                  { key: 'Flat', label: 'Flat / Apartment', icon: 'business-outline' },
+                  { key: 'Studio', label: 'Studio Room', icon: 'bed-outline' },
+                  { key: 'Other', label: 'Other Type', icon: 'grid-outline' },
                 ].map((type) => {
                   const isSelected = propertyType === type.key;
                   return (
@@ -233,7 +242,12 @@ export default function AddPropertyScreen() {
                         isSelected && styles.gridItemActive,
                       ]}
                     >
-                      <Text style={styles.gridIcon}>{type.icon}</Text>
+                      <Ionicons 
+                        name={type.icon as any} 
+                        size={24} 
+                        color={isSelected ? Theme.colors.primary : Theme.colors.mutedFg} 
+                        style={{ marginBottom: 4 }}
+                      />
                       <Text
                         style={[
                           styles.gridLabel,
@@ -307,6 +321,7 @@ export default function AddPropertyScreen() {
                     setRoomCount((c) => {
                       if (c > 1) {
                         setRoomNames(prev => prev.slice(0, prev.length - 1));
+                        setRoomRents(prev => prev.slice(0, prev.length - 1));
                         return c - 1;
                       }
                       return c;
@@ -323,6 +338,7 @@ export default function AddPropertyScreen() {
                     setRoomCount((c) => {
                       if (c < 20) {
                         setRoomNames(prev => [...prev, `Room ${prev.length + 1}`]);
+                        setRoomRents(prev => [...prev, defaultRent]);
                         return c + 1;
                       }
                       return c;
@@ -340,7 +356,10 @@ export default function AddPropertyScreen() {
                   <Text style={styles.currencySymbol}>$</Text>
                   <TextInput
                     value={defaultRent}
-                    onChangeText={setDefaultRent}
+                    onChangeText={(val) => {
+                      setDefaultRent(val);
+                      setRoomRents(prev => prev.map(() => val));
+                    }}
                     keyboardType="number-pad"
                     style={[styles.input, styles.currencyInput]}
                   />
@@ -349,10 +368,10 @@ export default function AddPropertyScreen() {
 
               <Text style={styles.previewTitle}>Rooms Preview</Text>
               <View style={styles.previewList}>
-                {roomNames.slice(0, 4).map((rName, i) => (
+                {roomNames.map((rName, i) => (
                   <View key={i} style={styles.previewItem}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <Text style={{ fontSize: 16 }}>🚪</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 8 }}>
+                      <Ionicons name="bed-outline" size={20} color={Theme.colors.mutedFg} />
                       <TextInput 
                         style={styles.previewItemNameInput} 
                         value={rName} 
@@ -362,18 +381,24 @@ export default function AddPropertyScreen() {
                           setRoomNames(newNames);
                         }} 
                       />
-                      <Text style={{ fontSize: 14, color: Theme.colors.mutedFg }}>✏️</Text>
                     </View>
-                    <View style={styles.vacantBadge}>
-                      <Text style={styles.vacantBadgeText}>Vacant</Text>
+                    <View style={styles.roomRentWrapper}>
+                      <Text style={styles.roomRentSymbol}>$</Text>
+                      <TextInput 
+                        style={styles.roomRentInput}
+                        value={roomRents[i] !== undefined ? roomRents[i] : defaultRent}
+                        onChangeText={(val) => {
+                          const newRents = [...roomRents];
+                          newRents[i] = val;
+                          setRoomRents(newRents);
+                        }}
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor={Theme.colors.mutedFg}
+                      />
                     </View>
                   </View>
                 ))}
-                {roomCount > 4 && (
-                  <Text style={styles.previewMoreText}>
-                    + {roomCount - 4} more rooms...
-                  </Text>
-                )}
               </View>
 
               <Pressable
@@ -399,7 +424,9 @@ export default function AddPropertyScreen() {
         {step === 'done' && (
           <View style={styles.stepContainer}>
             <View style={styles.celebrateCard}>
-              <Text style={styles.celebrateEmoji}>🎉</Text>
+              <View style={{ marginBottom: 12 }}>
+                <Ionicons name="checkmark-circle" size={64} color={Theme.colors.success} />
+              </View>
               <Text style={styles.celebrateTitle}>{name} created!</Text>
               <Text style={styles.celebrateSubtitle}>
                 {roomCount} rooms are ready. Share these invite codes with your tenants so they can join their rooms.
@@ -450,6 +477,7 @@ export default function AddPropertyScreen() {
             </Pressable>
           </View>
         )}
+      <View style={{ height: 80 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -776,27 +804,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Theme.colors.fg,
     fontFamily: Theme.fonts.bold,
-    padding: 0,
+    backgroundColor: Theme.colors.bg,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: Theme.radius.sm,
     flex: 1,
   },
-  vacantBadge: {
-    backgroundColor: Theme.colors.muted,
-    paddingVertical: 4,
+  roomRentWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.bg,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.sm,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    width: 80,
   },
-  vacantBadgeText: {
-    fontSize: 11,
+  roomRentSymbol: {
+    fontSize: 14,
+    fontWeight: '600',
     color: Theme.colors.mutedFg,
-    fontFamily: Theme.fonts.bold,
+    marginRight: 4,
+  },
+  roomRentInput: {
+    flex: 1,
+    fontSize: 14,
     fontWeight: '700',
-  },
-  previewMoreText: {
-    fontSize: 11,
-    color: Theme.colors.mutedFg,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 2,
+    color: Theme.colors.primary,
+    fontFamily: Theme.fonts.bold,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
   },
   // STEP 3: DONE
   celebrateCard: {
@@ -910,3 +949,5 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bold,
   },
 });
+
+

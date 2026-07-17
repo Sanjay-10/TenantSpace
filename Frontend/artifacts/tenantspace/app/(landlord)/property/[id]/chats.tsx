@@ -9,6 +9,7 @@ import { Theme } from '../../../../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { getAllReadReceipts } from '../../../../lib/readReceipts';
+import { AvatarCluster, getInitials } from '../../../../components/ui/AvatarCluster';
 
 export default function LandlordChatsHub() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,7 +31,7 @@ export default function LandlordChatsHub() {
   // Keep hub perfectly in sync while in background
   useEffect(() => {
     if (!id) return;
-    const channel = supabase.channel(`hub-updates-${id}`)
+    const channel = supabase.channel(`hub-updates-${id}-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `property_id=eq.${id}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['landlordChatsHub', id] });
       })
@@ -126,11 +127,13 @@ export default function LandlordChatsHub() {
   const chatItems = rooms.map((room: any) => {
     const activeTenants = room.tenant_memberships?.filter((m: any) => m.status === 'active') || [];
     const tenantCount = activeTenants.length;
-    const initials = room.name.substring(0, 2).toUpperCase();
+    const initials = getInitials(room.name);
     
     // Pick a random vibrant color based on room id string length just for UI polish
     const colors = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6'];
     const color = colors[room.id.length % colors.length];
+    
+    const activeTenantProfiles = activeTenants.map((m: any) => m.profiles).filter(Boolean);
     
     const latestMsg = getLatestMessage(room.id);
     
@@ -143,6 +146,7 @@ export default function LandlordChatsHub() {
       id: room.id,
       name: room.name,
       tenantCount,
+      activeTenantProfiles,
       initials,
       color,
       latestText: latestMsg ? `${(latestMsg.profiles as any)?.full_name?.split(' ')[0]}: ${latestMsg.text}` : 'No messages yet',
@@ -164,13 +168,21 @@ export default function LandlordChatsHub() {
   const groupLastReadDate = new Date(groupLastReadIso);
   const groupUnreadCount = recentMessages.filter(m => m.room_id === null && new Date(m.created_at) > groupLastReadDate && m.sender_id !== profile?.id).length;
 
+  const allPropertyTenants: any[] = [];
+  rooms.forEach((r: any) => {
+    const active = r.tenant_memberships?.filter((m: any) => m.status === 'active') || [];
+    active.forEach((m: any) => {
+      if (m.profiles) allPropertyTenants.push(m.profiles);
+    });
+  });
+
   const renderItem = ({ item }: { item: typeof chatItems[0] }) => (
     <Pressable 
       style={styles.chatRow}
-      onPress={() => router.push(`/(landlord)/property/${id}/chat/${item.id}`)}
+      onPress={() => router.navigate(`/(landlord)/property/${id}/chat/${item.id}`)}
     >
-      <View style={[styles.avatar, { backgroundColor: item.color }]}>
-        <Text style={styles.avatarText}>{item.initials}</Text>
+      <View style={{ width: 50, marginRight: 14, alignItems: 'center', justifyContent: 'center' }}>
+        <AvatarCluster tenants={item.activeTenantProfiles} size={50} fallbackInitials={item.initials} fallbackColor={item.color} />
       </View>
       
       <View style={styles.chatInfo}>
@@ -224,10 +236,10 @@ export default function LandlordChatsHub() {
             </View>
             <Pressable 
               style={styles.chatRow}
-              onPress={() => router.push(`/(landlord)/property/${id}/chat/group`)}
+              onPress={() => router.navigate(`/(landlord)/property/${id}/chat/group`)}
             >
-              <View style={[styles.avatar, { backgroundColor: '#3B82F6' }]}>
-                <Text style={[styles.avatarText, { fontSize: 14 }]}>ALL</Text>
+              <View style={{ width: 50, marginRight: 14, alignItems: 'center', justifyContent: 'center' }}>
+                <AvatarCluster tenants={allPropertyTenants} size={50} fallbackInitials="ALL" fallbackColor="#3B82F6" />
               </View>
               
               <View style={styles.chatInfo}>
@@ -304,5 +316,9 @@ const styles = StyleSheet.create({
   msgPreviewUnread: { color: '#0F172A', fontWeight: '600' },
   
   unreadBadge: { backgroundColor: '#3B82F6', minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginLeft: 8 },
-  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' }
+  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  
+  tenantAvatarsContainer: { flexDirection: 'row', alignItems: 'center' },
+  tenantAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  tenantAvatarText: { fontSize: 12, fontWeight: '800' }
 });

@@ -60,7 +60,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerIconText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: C.mutedFg,
   },
   headerTitleContainer: {
@@ -191,15 +192,15 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   listItemIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   listItemIconText: {
-    fontSize: 18,
+    fontSize: 20,
     color: C.primary,
   },
   listItemTextContainer: {
@@ -220,16 +221,16 @@ export const styles = StyleSheet.create({
     marginRight: 4,
   },
   tenantAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 29,
+    height: 29,
+    borderRadius: 14.5,
     borderWidth: 2,
     borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tenantAvatarText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#fff',
   },
@@ -297,11 +298,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 16,
   },
   fabPrimaryText: {
     color: '#fff',
@@ -465,6 +466,8 @@ export const styles = StyleSheet.create({
     fontSize: 9,
     color: C.mutedFg,
     fontWeight: '600',
+    maxWidth: 55,
+    textAlign: 'center',
   },
   choreExpanded: {
     borderTopWidth: 1,
@@ -740,11 +743,11 @@ export const styles = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
   },
   fabChatIcon: {
     fontSize: 22,
@@ -774,42 +777,46 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Bottom Tabs
-  bottomTabBar: {
-    backgroundColor: C.card,
-    borderTopWidth: 1,
-    borderColor: C.border,
+  // Expandable Nav Bar
+  bottomBarWrapper: {
+    backgroundColor: 'transparent',
     paddingTop: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
   },
-  bottomTabGroup: {
-    backgroundColor: C.muted,
-    borderRadius: 14,
-    padding: 4,
+  expandableNavBar: {
     flexDirection: 'row',
-    gap: 3,
-  },
-  bottomTabButton: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  bottomTabButtonActive: {
-    backgroundColor: C.card,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 1,
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 4,
   },
-  bottomTabText: {
-    fontSize: 12,
+  navIconWrapper: {
+    width: 60,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  navIconWrapperActive: {
+    backgroundColor: C.muted,
+  },
+  navText: {
+    fontSize: 11,
     fontWeight: '500',
     color: C.mutedFg,
+    marginTop: 4,
   },
-  bottomTabTextActive: {
+  navTextActive: {
     fontWeight: '700',
     color: C.primary,
   },

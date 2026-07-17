@@ -50,6 +50,10 @@ export default function RentTab({ rooms, renderPropertyHero }: Props) {
           </View>
         ))}
       </View>
+    
+    <View style={{ height: 80 }} />
     </ScrollView>
   );
 }
+
+

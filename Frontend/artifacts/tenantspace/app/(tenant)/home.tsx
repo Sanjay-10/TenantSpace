@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useQuery } from '@tanstack/react-query';
 
 // Formatting helpers
 const formatDate = (dateString: string | null) => {
@@ -41,6 +43,8 @@ export default function TenantHomeScreen() {
   // Join Room Form State
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -63,7 +67,8 @@ export default function TenantHomeScreen() {
             properties (
               id,
               name,
-              address
+              address,
+              property_type
             )
           )
         `)
@@ -91,7 +96,22 @@ export default function TenantHomeScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchTenantData();
+    refetchPrevious();
   };
+
+  const { data: previousRooms = [], refetch: refetchPrevious } = useQuery({
+    queryKey: ['tenantPreviousRooms', profile?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_previous_rooms')
+        .select('*')
+        .eq('tenant_id', profile?.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.id,
+  });
 
   const handleJoinRoom = async () => {
     if (!inviteCode.trim()) {
@@ -155,23 +175,23 @@ export default function TenantHomeScreen() {
     );
   }
 
-  const hasHomes = currentMemberships.length > 0 || pastMemberships.length > 0;
+  const hasHomes = currentMemberships.length > 0 || pastMemberships.length > 0 || previousRooms.length > 0;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       {/* Top Navigation / Status Bar Area */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
-          <Text style={styles.headerWelcome}>{hasHomes ? 'Welcome back 👋' : 'Welcome 👋'}</Text>
-          <Text style={styles.headerName}>{hasHomes ? 'My Homes' : `Hi, ${profile?.full_name?.split(' ')[0]}`}</Text>
+          <Text style={styles.headerWelcome}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
+          <Text style={styles.headerName}>{hasHomes ? 'My Homes' : 'Welcome'}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {hasHomes && (
-            <Pressable style={styles.iconButton}>
+            <Pressable style={styles.iconButton} onPress={() => setShowAddMenu(true)}>
               <Ionicons name="add-outline" size={24} color="#0F172A" />
             </Pressable>
           )}
-          <Pressable onPress={() => router.push('/(tenant)/settings')} style={styles.iconButton}>
+          <Pressable onPress={() => router.navigate('/(tenant)/settings')} style={styles.iconButton}>
             <Ionicons name="settings-outline" size={24} color="#0F172A" />
           </Pressable>
         </View>
@@ -224,6 +244,14 @@ export default function TenantHomeScreen() {
                 <Text style={styles.helpText}>Ask your landlord for an invite code. Once you join, you'll see your room, rent, and chats here.</Text>
               </View>
             </View>
+            
+            <Pressable 
+              style={styles.emptySecondaryBtn}
+              onPress={() => router.navigate('/(tenant)/add-previous-room')}
+            >
+              <Ionicons name="archive-outline" size={20} color={Theme.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.emptySecondaryBtnText}>Add a Previous Room instead</Text>
+            </Pressable>
           </View>
         ) : (
           /* DASHBOARD STATE */
@@ -239,7 +267,7 @@ export default function TenantHomeScreen() {
                   <Pressable 
                     key={mem.id} 
                     style={styles.currentCard}
-                    onPress={() => router.push(`/(tenant)/room/${room.id}` as any)}
+                    onPress={() => router.navigate(`/(tenant)/room/${room.id}` as any)}
                   >
                     <LinearGradient colors={['#1D4ED8', '#3B82F6']} style={styles.currentGradient}>
                       <View style={styles.cardCircle1} />
@@ -250,8 +278,16 @@ export default function TenantHomeScreen() {
                           <Text style={styles.propName}>{prop?.name}</Text>
                           <Text style={styles.propAddress}>{prop?.address}</Text>
                         </View>
-                        <View style={styles.activeBadge}>
-                          <Text style={styles.activeBadgeText}>● Active</Text>
+                        <View style={[styles.activeBadge, { flexDirection: 'row', alignItems: 'center' }]}>
+                          <Ionicons 
+                            name={prop?.property_type === 'Shared House' ? 'home' : prop?.property_type === 'Flat' ? 'business' : prop?.property_type === 'Studio' ? 'bed' : 'grid'} 
+                            size={12} 
+                            color="#fff" 
+                            style={{ marginRight: 4 }} 
+                          />
+                          <Text style={styles.activeBadgeText}>
+                            {prop?.property_type === 'Shared House' ? 'SHARED' : prop?.property_type === 'Flat' ? 'FLAT' : prop?.property_type === 'Studio' ? 'STUDIO' : 'OTHER'}
+                          </Text>
                         </View>
                       </View>
                       
@@ -284,9 +320,11 @@ export default function TenantHomeScreen() {
             </View>
 
             {/* PREVIOUS HOMES */}
-            {pastMemberships.length > 0 && (
+            {(pastMemberships.length > 0 || previousRooms.length > 0) && (
               <View style={[styles.section, { marginTop: 10 }]}>
                 <Text style={styles.sectionTitle}>PREVIOUS</Text>
+                
+                {/* Official Past Memberships */}
                 {pastMemberships.map(mem => {
                   const room = mem.rooms;
                   const prop = room?.properties;
@@ -295,22 +333,119 @@ export default function TenantHomeScreen() {
                       key={mem.id} 
                       style={styles.pastCard}
                     >
-                      <View style={styles.pastIconWrap}><Text style={styles.pastIcon}>🏠</Text></View>
+                      <View style={styles.pastIconWrap}><Ionicons name="home-outline" size={22} color="#64748B" /></View>
                       <View style={{ flex: 1, paddingRight: 10 }}>
                         <Text style={styles.pastPropName} numberOfLines={1}>{prop?.name}</Text>
                         <Text style={styles.pastAddress} numberOfLines={1}>{prop?.address}</Text>
-                        <Text style={styles.pastDates}>Joined {formatDate(mem.created_at)}</Text>
+                        <Text style={styles.pastDates}>
+                          Joined {formatDate(mem.created_at)}
+                        </Text>
                       </View>
-                      <Text style={styles.chevron}>›</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                     </Pressable>
                   );
                 })}
+
+                {/* Personal Archive Rooms */}
+                {previousRooms.map((room: any) => (
+                  <Pressable 
+                    key={room.id} 
+                    style={styles.pastCard}
+                    onPress={() => router.navigate(`/(tenant)/previous-room/${room.id}` as any)}
+                  >
+                    <View style={styles.pastIconWrap}><Ionicons name="home-outline" size={22} color="#64748B" /></View>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={styles.pastPropName} numberOfLines={1}>{room.property_name}</Text>
+                      <Text style={styles.pastAddress} numberOfLines={1}>{room.room_name}</Text>
+                      <Text style={styles.pastDates}>
+                        {room.start_date ? formatDate(room.start_date) : 'Unknown'} – {room.end_date ? formatDate(room.end_date) : 'Present'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  </Pressable>
+                ))}
               </View>
             )}
 
           </View>
         )}
+      <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* Add Menu Modal */}
+      <Modal visible={showAddMenu} transparent animationType="slide" onRequestClose={() => setShowAddMenu(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable style={styles.modalOverlay} onPress={() => setShowAddMenu(false)} />
+          <View style={styles.actionSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Add a Room</Text>
+            
+            <Pressable 
+              style={styles.sheetBtn} 
+              onPress={() => {
+                setShowAddMenu(false);
+                setShowJoinModal(true);
+              }}
+            >
+              <View style={[styles.sheetIconWrap, { backgroundColor: Theme.colors.primary }]}><Ionicons name="link" size={20} color="#fff" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetBtnText}>Join New Room</Text>
+                <Text style={styles.sheetBtnSub}>Use an invite code from your landlord</Text>
+              </View>
+            </Pressable>
+
+            <Pressable 
+              style={styles.sheetBtn} 
+              onPress={() => {
+                setShowAddMenu(false);
+                router.navigate('/(tenant)/add-previous-room');
+              }}
+            >
+              <View style={[styles.sheetIconWrap, { backgroundColor: Theme.colors.success }]}><Ionicons name="archive" size={20} color="#fff" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetBtnText}>Add Previous Room</Text>
+                <Text style={styles.sheetBtnSub}>Save details & docs from a past rental</Text>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Join Room Modal */}
+      <Modal visible={showJoinModal} transparent animationType="slide" onRequestClose={() => setShowJoinModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable style={styles.modalOverlay} onPress={() => setShowJoinModal(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.joinModalContent}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={styles.formLabel}>INVITE CODE</Text>
+                <Pressable onPress={() => setShowJoinModal(false)}>
+                  <Ionicons name="close" size={24} color={Theme.colors.mutedFg} />
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.formInput}
+                value={inviteCode}
+                onChangeText={text => setInviteCode(text.toUpperCase())}
+                placeholder="e.g. MAPLE-2B-9X4P"
+                placeholderTextColor={Theme.colors.mutedFg}
+                autoCapitalize="characters"
+              />
+              <Pressable 
+                style={[styles.formBtn, !inviteCode && { backgroundColor: Theme.colors.muted }]} 
+                disabled={!inviteCode || joining}
+                onPress={async () => {
+                  await handleJoinRoom();
+                  setShowJoinModal(false);
+                }}
+              >
+                {joining ? <ActivityIndicator color="#fff" /> : <Text style={[styles.formBtnText, !inviteCode && { color: Theme.colors.mutedFg }]}>Join Room</Text>}
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
     </KeyboardAvoidingView>
   );
 }
@@ -356,7 +491,7 @@ const styles = StyleSheet.create({
   currentCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   propName: { fontSize: 19, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   propAddress: { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 3 },
-  activeBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
+  activeBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20, backgroundColor: Theme.colors.success },
   activeBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   currentCardStats: { flexDirection: 'row', gap: 24 },
   statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginBottom: 2 },
@@ -370,5 +505,25 @@ const styles = StyleSheet.create({
   pastIcon: { fontSize: 22 },
   pastPropName: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginBottom: 2 },
   pastAddress: { fontSize: 11, color: '#64748B', marginBottom: 4 },
-  pastDates: { fontSize: 11, color: '#64748B' }
+  pastDates: { fontSize: 11, color: '#64748B' },
+  pastDates: { fontSize: 11, color: '#64748B' },
+  pastPremiumName: { fontSize: 19, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 },
+  pastPremiumAddress: { fontSize: 12, color: '#475569', marginTop: 3 },
+  pastPremiumLabel: { fontSize: 10, color: '#64748B', marginBottom: 2 },
+  pastPremiumValue: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  pastPremiumCircle1: { position: 'absolute', right: -20, top: -20, width: 130, height: 130, borderRadius: 65, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.03)' },
+  pastPremiumCircle2: { position: 'absolute', right: -60, top: -60, width: 200, height: 200, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)' },
+  emptySecondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: Theme.colors.primary + '15', borderRadius: Theme.radius.lg, marginTop: 16, borderWidth: 1, borderColor: Theme.colors.primary + '30' },
+  emptySecondaryBtnText: { color: Theme.colors.primary, fontSize: 14, fontWeight: '700', fontFamily: Theme.fonts.bold },
+  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  actionSheet: { backgroundColor: Theme.colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Theme.colors.border, alignSelf: 'center', marginBottom: 20 },
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.fg, fontFamily: Theme.fonts.bold, marginBottom: 20 },
+  sheetBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.border, gap: 16 },
+  sheetIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  sheetBtnText: { fontSize: 16, fontWeight: '700', color: Theme.colors.fg, fontFamily: Theme.fonts.bold },
+  sheetBtnSub: { fontSize: 13, color: Theme.colors.mutedFg, fontFamily: Theme.fonts.regular, marginTop: 2 },
+  joinModalContent: { backgroundColor: Theme.colors.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12 }
 });
+
+

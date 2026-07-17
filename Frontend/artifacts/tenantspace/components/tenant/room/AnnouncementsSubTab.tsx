@@ -1,9 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Theme } from '../../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import ImageView from 'react-native-image-viewing';
 
 export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlord' }: { announcements?: any[], landlordName?: string }) {
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{uri: string}[]>([]);
+
   if (!announcements || announcements.length === 0) {
     return (
       <View style={styles.mockCard}>
@@ -47,9 +51,31 @@ export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlo
 
             <Text style={[styles.annTitle, isExpired && { color: Theme.colors.mutedFg }]}>{ann.title}</Text>
             <Text style={[styles.annBody, isExpired && { opacity: 0.7 }]}>{ann.body}</Text>
+            
+            {ann.signed_image_url && (
+              <Pressable 
+                style={[{ marginTop: 12, borderRadius: 12, overflow: 'hidden' }, isExpired && { opacity: 0.7 }]}
+                onPress={() => {
+                  setViewerImages([{ uri: ann.signed_image_url }]);
+                  setViewerVisible(true);
+                }}
+              >
+                <Image 
+                  source={{ uri: ann.signed_image_url }} 
+                  style={{ width: '100%', height: 200, resizeMode: 'cover' }} 
+                />
+              </Pressable>
+            )}
           </View>
         );
       })}
+      
+      <ImageView
+        images={viewerImages}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+      />
     </View>
   );
 }

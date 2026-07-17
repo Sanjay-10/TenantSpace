@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { getTenantColor, getTenantTextColor } from '../ui/AvatarCluster';
 import { Ionicons } from '@expo/vector-icons';
 import { C, styles } from './propertyStyles';
 
@@ -18,8 +19,19 @@ const statusStyle: Record<string, { bg: string; fg: string; label: string }> = {
   missed:  { bg: "#FEE2E2",  fg: "#991B1B",  label: "Missed"   },
 };
 
-// Removed emoji helper
-
+const getChoreIcon = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('bin') || n.includes('trash') || n.includes('garbage') || n.includes('rubbish')) return 'trash-outline';
+  if (n.includes('bath') || n.includes('toilet') || n.includes('shower')) return 'water-outline';
+  if (n.includes('kitchen') || n.includes('dish')) return 'restaurant-outline';
+  if (n.includes('vacuum') || n.includes('floor') || n.includes('sweep') || n.includes('mop') || n.includes('clean')) return 'sparkles-outline';
+  if (n.includes('hall') || n.includes('corridor') || n.includes('stair') || n.includes('steps')) return 'footsteps-outline';
+  if (n.includes('living') || n.includes('lounge') || n.includes('tv')) return 'tv-outline';
+  if (n.includes('laundry') || n.includes('cloth') || n.includes('wash')) return 'shirt-outline';
+  if (n.includes('plant') || n.includes('garden') || n.includes('water') || n.includes('lawn')) return 'leaf-outline';
+  if (n.includes('pet') || n.includes('dog') || n.includes('cat') || n.includes('feed')) return 'paw-outline';
+  return 'clipboard-outline';
+};
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function PropertyDutiesSubTab({
@@ -33,14 +45,15 @@ export function PropertyDutiesSubTab({
   
   const doneCount = chores.filter(c => c.status === 'done').length;
 
-  // Calculate this week's date range
+  // Calculate this week's date range (Monday to Sunday)
   const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1; // 0=Mon, 6=Sun
   const first = new Date(today.getTime());
-  first.setDate(today.getDate() - today.getDay());
+  first.setDate(today.getDate() - dayOfWeek);
   const last = new Date(today.getTime());
-  last.setDate(today.getDate() - today.getDay() + 6);
+  last.setDate(today.getDate() - dayOfWeek + 6);
   const formatDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const weekDatesStr = `${formatDate(first)} - ${formatDate(last)}`;
+  const weekDatesStr = `${formatDate(first)} - ${formatDate(last)} (Mon - Sun)`;
 
   return (
     <ScrollView 
@@ -64,8 +77,15 @@ export function PropertyDutiesSubTab({
         </View>
       ) : chores.map((chore: any) => {
         const ss = statusStyle[chore.status || 'pending'] || statusStyle.pending;
-        const isExpanded = expandedChore === chore.id;
-        const daysStr = (chore.days_of_week || []).map((d: number) => DAYS[d]).join(", ");
+        const days = chore.days_of_week || [];
+        const daysStr = days.map((d: number) => DAYS[d]).join(", ");
+        let dateBadge = "";
+        if (days.length > 0) {
+          const minDayOffset = Math.min(...days.map((d: number) => d === 0 ? 6 : d - 1));
+          const targetDate = new Date(first);
+          targetDate.setDate(first.getDate() + minDayOffset);
+          dateBadge = `${targetDate.getDate()} ${targetDate.toLocaleDateString('en-US', { month: 'short' })}`;
+        }
         
         // Resolve current assignee
         const rotation = chore.rotation_order || [];
@@ -84,7 +104,7 @@ export function PropertyDutiesSubTab({
           >
             <View style={styles.choreMainRow}>
               <View style={styles.choreIconBox}>
-                <Ionicons name="clipboard-outline" size={20} color={C.fg} />
+                <Ionicons name={getChoreIcon(chore.name) as any} size={20} color={C.fg} />
               </View>
 
               <View style={styles.choreInfo}>
@@ -94,15 +114,19 @@ export function PropertyDutiesSubTab({
                     <Text style={[styles.choreStatusText, { color: ss.fg }]}>{ss.label}</Text>
                   </View>
                 </View>
-                <Text style={styles.choreSchedule}>{chore.frequency} · {daysStr}</Text>
+                <Text style={styles.choreSchedule}>
+                  {chore.frequency}{daysStr ? ` · ${daysStr}` : ''}{dateBadge ? ` · ${dateBadge}` : ''}
+                </Text>
               </View>
 
               {current && (
                 <View style={styles.choreCurrentAssignee}>
-                  <View style={[styles.choreAvatar, { backgroundColor: current.color }]}>
-                    <Text style={styles.choreAvatarText}>{current.initials}</Text>
+                  <View style={[styles.choreAvatar, { backgroundColor: getTenantColor(current.id) }]}>
+                    <Text style={[styles.choreAvatarText, { color: getTenantTextColor(current.id) }]}>{current.initials}</Text>
                   </View>
-                  <Text style={styles.choreCurrentName}>{current.name}</Text>
+                  <Text style={styles.choreCurrentName} numberOfLines={1}>
+                    {current.name.split(' ')[0]}
+                  </Text>
                 </View>
               )}
 
@@ -135,8 +159,8 @@ export function PropertyDutiesSubTab({
                       <View style={[styles.rotationIndexBadge, isCurrent && { backgroundColor: C.primary }]}>
                         <Text style={[styles.rotationIndexText, isCurrent && { color: '#fff' }]}>{i + 1}</Text>
                       </View>
-                      <View style={[styles.rotationAvatar, { backgroundColor: p.color }]}>
-                        <Text style={styles.rotationAvatarText}>{p.initials}</Text>
+                      <View style={[styles.rotationAvatar, { backgroundColor: getTenantColor(p.id) }]}>
+                        <Text style={[styles.rotationAvatarText, { color: getTenantTextColor(p.id) }]}>{p.initials}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.rotationName, isCurrent && { color: C.primary, fontWeight: '700' }]}>{p.name}</Text>
@@ -153,7 +177,7 @@ export function PropertyDutiesSubTab({
                   const id = selectedChore.id;
                   const propertyId = selectedChore.property_id;
                   setSelectedChore(null);
-                  router.push({
+                  router.navigate({
                     pathname: '/(landlord)/property/assign-chore',
                     params: { propertyId, choreId: id }
                   } as any);
@@ -169,11 +193,17 @@ export function PropertyDutiesSubTab({
                   <Text style={styles.deleteChoreBtnText}>Delete</Text>
                 </Pressable>
               </View>
-            </ScrollView>
+            
+            <View style={{ height: 80 }} />
+    </ScrollView>
           </View>
         </View>
       </Modal>
-      <View style={{ height: 100 }} />
+      
+    
+    <View style={{ height: 80 }} />
     </ScrollView>
   );
 }
+
+

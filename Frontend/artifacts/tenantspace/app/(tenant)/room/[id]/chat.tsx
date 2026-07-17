@@ -6,6 +6,7 @@ import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { ChatRoom, ChatParticipant } from '../../../../components/chat/ChatRoom';
 import { Theme } from '../../../../constants/theme';
+import { getInitials } from '../../../../components/ui/AvatarCluster';
 
 export default function TenantChatScreen() {
   const { id: roomId, type } = useLocalSearchParams<{ id: string, type: 'private' | 'group' }>();
@@ -84,7 +85,7 @@ export default function TenantChatScreen() {
     participants[roomData.landlordProfile.id] = {
       id: roomData.landlordProfile.id,
       name: roomData.landlordProfile.full_name || 'Landlord',
-      initials: (roomData.landlordProfile.full_name || 'L').substring(0, 2).toUpperCase(),
+      initials: getInitials(roomData.landlordProfile.full_name || 'Landlord'),
       color: Theme.colors.accent,
     };
   }
@@ -99,7 +100,7 @@ export default function TenantChatScreen() {
           participants[m.tenant_id] = {
             id: m.tenant_id,
             name: m.profiles.full_name || 'Tenant',
-            initials: (m.profiles.full_name || 'T').substring(0, 2).toUpperCase(),
+            initials: getInitials(m.profiles.full_name || 'Tenant'),
             color: m.tenant_id === profile.id ? '#2563EB' : '#059669',
           };
         }
@@ -113,7 +114,7 @@ export default function TenantChatScreen() {
         participants[m.tenant_id] = {
           id: m.tenant_id,
           name: m.profiles.full_name || 'Tenant',
-          initials: (m.profiles.full_name || 'T').substring(0, 2).toUpperCase(),
+          initials: getInitials(m.profiles.full_name || 'Tenant'),
           color: m.tenant_id === profile.id ? '#2563EB' : '#059669',
         };
       }

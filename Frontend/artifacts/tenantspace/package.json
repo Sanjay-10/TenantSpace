@@ -5,8 +5,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -61,11 +61,15 @@
     "expo-clipboard": "~8.0.8",
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "^57.0.0",
+    "expo-image-manipulator": "~14.0.8",
     "expo-intent-launcher": "~13.0.8",
     "expo-media-library": "~18.2.1",
     "expo-sharing": "~14.0.8",
     "expo-video-thumbnails": "~10.0.8",
     "react-native-image-viewing": "^0.2.2",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "expo": "~54.0.35",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

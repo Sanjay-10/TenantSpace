@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '../../../constants/theme';
 import { supabase } from '../../../lib/supabase';
+import { getTenantColor, getTenantTextColor, getInitials } from '../../../components/ui/AvatarCluster';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const PRESETS = ["Kitchen", "Bathroom", "Hallway", "Bins", "Living room", "Garden"];
@@ -34,8 +35,6 @@ const FREQ_OPTS = [
   { label: 'Bi-weekly', val: 'bi-weekly' },
   { label: 'Monthly', val: 'monthly' },
 ];
-
-const COLORS = ['#2563EB', '#8B5CF6', '#F97316', '#10B981', '#EF4444', '#64748B'];
 
 export default function AssignChoreScreen() {
   const { propertyId, choreId } = useLocalSearchParams();
@@ -82,8 +81,7 @@ export default function AssignChoreScreen() {
           tenants.push({
             id: m.profiles.id,
             name: m.profiles.full_name || 'Tenant',
-            initials: (m.profiles.full_name || 'T').substring(0, 2).toUpperCase(),
-            color: COLORS[tenants.length % COLORS.length],
+            initials: getInitials(m.profiles.full_name),
             room: room.name,
           });
         }
@@ -95,7 +93,7 @@ export default function AssignChoreScreen() {
     if (choreId) {
       fetchExistingChore(tenants);
     } else {
-      setRotation(tenants); // default to all tenants
+      setRotation(tenants);
     }
   };
 
@@ -183,7 +181,6 @@ export default function AssignChoreScreen() {
     >
       <View style={{ height: insets.top, backgroundColor: Theme.colors.card }} />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
@@ -197,7 +194,6 @@ export default function AssignChoreScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Duty Name */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>CHORE NAME</Text>
           <TextInput
@@ -225,7 +221,6 @@ export default function AssignChoreScreen() {
           </View>
         </View>
 
-        {/* Days */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>DAY(S)</Text>
           <View style={styles.daysContainer}>
@@ -246,7 +241,6 @@ export default function AssignChoreScreen() {
           </View>
         </View>
 
-        {/* Frequency */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>REPEATS</Text>
           <View style={styles.freqContainer}>
@@ -267,7 +261,6 @@ export default function AssignChoreScreen() {
           </View>
         </View>
 
-        {/* Rotation Order */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ROTATION ORDER</Text>
           <Text style={styles.sectionSubtitle}>Use arrows to reorder · × to remove</Text>
@@ -288,8 +281,8 @@ export default function AssignChoreScreen() {
                   <Text style={[styles.positionBadgeText, i === 0 ? { color: '#fff' } : null]}>{i + 1}</Text>
                 </View>
 
-                <View style={[styles.avatar, { backgroundColor: person.color }]}>
-                  <Text style={styles.avatarText}>{person.initials}</Text>
+                <View style={[styles.avatar, { backgroundColor: getTenantColor(person.id) }]}>
+                  <Text style={[styles.avatarText, { color: getTenantTextColor(person.id) }]}>{person.initials}</Text>
                 </View>
 
                 <View style={styles.personInfo}>
@@ -316,8 +309,8 @@ export default function AssignChoreScreen() {
                     setRotation([...rotation, person]);
                     setShowAdd(false);
                   }} style={styles.removedCard}>
-                    <View style={[styles.avatar, { backgroundColor: person.color, width: 26, height: 26, borderRadius: 13 }]}>
-                      <Text style={[styles.avatarText, { fontSize: 10 }]}>{person.initials}</Text>
+                    <View style={[styles.avatar, { backgroundColor: getTenantColor(person.id), width: 26, height: 26, borderRadius: 13 }]}>
+                      <Text style={[styles.avatarText, { fontSize: 10, color: getTenantTextColor(person.id) }]}>{person.initials}</Text>
                     </View>
                     <View style={styles.personInfo}>
                       <Text style={styles.personName}>{person.name}</Text>
@@ -375,6 +368,8 @@ export default function AssignChoreScreen() {
             </View>
           </LinearGradient>
         )}
+
+      <View style={{ height: 80 }} />
 
       </ScrollView>
 
@@ -575,3 +570,5 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700', fontFamily: Theme.fonts.bold },
 });
+
+

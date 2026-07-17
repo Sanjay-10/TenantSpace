@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl, Image, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { getTenantColor, getTenantTextColor } from '../ui/AvatarCluster';
 import { C, styles as baseStyles } from './propertyStyles';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -194,6 +195,80 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
     }
   };
 
+  const activeReqs = requests.filter((r: any) => (optimisticStatuses[r.id] || r.status || 'open') !== 'resolved');
+  const resolvedReqs = requests.filter((r: any) => (optimisticStatuses[r.id] || r.status || 'open') === 'resolved');
+
+  const renderReq = (req: any) => {
+    const tenant = tenantMap[req.tenant_id] || { name: 'Unknown', initials: '?', color: C.muted, roomName: 'Unknown' };
+    const pStyle = PRIORITY_STYLES[req.priority || 'normal'] || PRIORITY_STYLES.normal;
+    const hasPhoto = !!req.photo_url;
+    
+    // Use the optimistic status if one exists, otherwise fall back to DB status
+    const effectiveStatus = optimisticStatuses[req.id] || req.status || 'open';
+
+    return (
+      <Pressable key={req.id} style={styles.card} onPress={() => setSelectedReq(req)}>
+        
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Left Side: Header & Description */}
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            
+            <View style={styles.headerRow}>
+              <View style={[styles.avatar, { backgroundColor: getTenantColor(req.tenant_id) }]}>
+                <Text style={[styles.avatarText, { color: getTenantTextColor(req.tenant_id) }]}>{tenant.initials}</Text>
+              </View>
+              <View style={styles.titleCol}>
+                <Text style={styles.title}>{req.title}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaText}>{tenant.roomName} · {tenant.name.split(' ')[0]} · {formatTimeAgo(req.created_at)}</Text>
+                </View>
+              </View>
+              <View style={[styles.badge, { backgroundColor: pStyle.bg, alignSelf: 'flex-start' }]}>
+                <Text style={[styles.badgeText, { color: pStyle.fg }]}>{pStyle.label}</Text>
+              </View>
+            </View>
+
+            {/* Description & Photo Symbol */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <Text style={[styles.description, { flex: 1, marginRight: 10, marginBottom: 0 }]} numberOfLines={2}>
+                {req.description}
+              </Text>
+              {hasPhoto && (
+                <Ionicons name="image-outline" size={18} color="#64748B" />
+              )}
+            </View>
+          </View>
+
+          {/* Right Side: Chevron Icon */}
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.muted, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, color: C.mutedFg, fontWeight: '600', marginTop: -2 }}>›</Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={[styles.actionsRow, { marginTop: 12 }]}>
+          <Pressable 
+            style={[styles.btn, effectiveStatus === 'in_progress' ? styles.btnActive : styles.btnInactive]}
+            onPress={() => updateStatus(req.id, effectiveStatus, 'in_progress')}
+          >
+            <Text style={[styles.btnText, effectiveStatus === 'in_progress' ? styles.btnTextInProgress : styles.btnTextInactive]}>
+              In Progress
+            </Text>
+          </Pressable>
+          
+          <Pressable 
+            style={[styles.btn, effectiveStatus === 'resolved' ? styles.btnResolvedActive : styles.btnInactive]}
+            onPress={() => updateStatus(req.id, effectiveStatus, 'resolved')}
+          >
+            <Text style={[styles.btnText, effectiveStatus === 'resolved' ? styles.btnTextResolved : styles.btnTextInactive]}>
+              Resolved ✓
+            </Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <>
       <ScrollView 
@@ -204,79 +279,20 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
             <Text style={{ color: C.mutedFg }}>No maintenance requests.</Text>
           </View>
         ) : (
-          requests.map((req) => {
-            const tenant = tenantMap[req.tenant_id] || { name: 'Unknown', initials: '?', color: C.muted, roomName: 'Unknown' };
-            const pStyle = PRIORITY_STYLES[req.priority || 'normal'] || PRIORITY_STYLES.normal;
-            const hasPhoto = !!req.photo_url;
-            
-            // Use the optimistic status if one exists, otherwise fall back to DB status
-            const effectiveStatus = optimisticStatuses[req.id] || req.status || 'open';
-
-            return (
-              <Pressable key={req.id} style={styles.card} onPress={() => setSelectedReq(req)}>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {/* Left Side: Header & Description */}
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    
-                    <View style={styles.headerRow}>
-                      <View style={[styles.avatar, { backgroundColor: tenant.color }]}>
-                        <Text style={styles.avatarText}>{tenant.initials}</Text>
-                      </View>
-                      <View style={styles.titleCol}>
-                        <Text style={styles.title}>{req.title}</Text>
-                        <View style={styles.metaRow}>
-                          <Text style={styles.metaText}>{tenant.roomName} · {tenant.name.split(' ')[0]} · {formatTimeAgo(req.created_at)}</Text>
-                        </View>
-                      </View>
-                      <View style={[styles.badge, { backgroundColor: pStyle.bg, alignSelf: 'flex-start' }]}>
-                        <Text style={[styles.badgeText, { color: pStyle.fg }]}>{pStyle.label}</Text>
-                      </View>
-                    </View>
-
-                    {/* Description & Photo Symbol */}
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                      <Text style={[styles.description, { flex: 1, marginRight: 10, marginBottom: 0 }]} numberOfLines={2}>
-                        {req.description}
-                      </Text>
-                      {hasPhoto && (
-                        <Ionicons name="image-outline" size={18} color="#64748B" />
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Right Side: Chevron Icon */}
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.muted, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 18, color: C.mutedFg, fontWeight: '600', marginTop: -2 }}>›</Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={[styles.actionsRow, { marginTop: 12 }]}>
-                  <Pressable 
-                    style={[styles.btn, effectiveStatus === 'in_progress' ? styles.btnActive : styles.btnInactive]}
-                    onPress={() => updateStatus(req.id, effectiveStatus, 'in_progress')}
-                  >
-                    <Text style={[styles.btnText, effectiveStatus === 'in_progress' ? styles.btnTextInProgress : styles.btnTextInactive]}>
-                      In Progress
-                    </Text>
-                  </Pressable>
-                  
-                  <Pressable 
-                    style={[styles.btn, effectiveStatus === 'resolved' ? styles.btnResolvedActive : styles.btnInactive]}
-                    onPress={() => updateStatus(req.id, effectiveStatus, 'resolved')}
-                  >
-                    <Text style={[styles.btnText, effectiveStatus === 'resolved' ? styles.btnTextResolved : styles.btnTextInactive]}>
-                      Resolved ✓
-                    </Text>
-                  </Pressable>
-                </View>
-              </Pressable>
-            );
-          })
+          <>
+            {activeReqs.map(renderReq)}
+            {resolvedReqs.length > 0 && (
+              <View style={{ marginTop: 24, marginBottom: 8, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: C.mutedFg, textTransform: 'uppercase', letterSpacing: 1.2 }}>Resolved</Text>
+              </View>
+            )}
+            {resolvedReqs.map(renderReq)}
+          </>
         )}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        
+      
+      <View style={{ height: 80 }} />
+    </ScrollView>
 
       {/* Pop-up Modal for Request Details */}
       <Modal
@@ -295,8 +311,8 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
                 <ScrollView contentContainerStyle={{ padding: 24 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <View style={styles.headerRow}>
-                      <View style={[styles.avatar, { backgroundColor: tenant.color }]}>
-                        <Text style={styles.avatarText}>{tenant.initials}</Text>
+                      <View style={[styles.avatar, { backgroundColor: getTenantColor(selectedReq.tenant_id) }]}>
+                        <Text style={[styles.avatarText, { color: getTenantTextColor(selectedReq.tenant_id) }]}>{tenant.initials}</Text>
                       </View>
                       <View>
                         <Text style={styles.metaText}>{tenant.name}</Text>
@@ -328,7 +344,9 @@ export function PropertyRequestsSubTab({ propertyId, requests, tenantMap }: Prop
                       transition={200}
                     />
                   )}
-                </ScrollView>
+                
+                <View style={{ height: 80 }} />
+    </ScrollView>
               );
             })()}
           </View>
@@ -485,3 +503,5 @@ const styles = StyleSheet.create({
     backgroundColor: C.muted,
   },
 });
+
+

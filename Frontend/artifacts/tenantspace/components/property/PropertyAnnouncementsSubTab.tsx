@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, ScrollView, Alert, Image } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { C, styles } from './propertyStyles';
 import { Ionicons } from '@expo/vector-icons';
+import ImageView from 'react-native-image-viewing';
 
 interface Props {
   announcements: any[];
@@ -25,6 +26,9 @@ export function PropertyAnnouncementsSubTab({
   setShowAnnModal,
   setAnnouncements,
 }: Props) {
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{uri: string}[]>([]);
+
   const handleDeleteAnnouncement = async (id: string) => {
     Alert.alert('Delete Announcement', 'Are you sure you want to delete this announcement?', [
       { text: 'Cancel', style: 'cancel' },
@@ -108,6 +112,21 @@ export function PropertyAnnouncementsSubTab({
             <Text style={styles.annTitle}>{ann.title}</Text>
             <Text style={styles.annBody}>{ann.body}</Text>
             
+            {ann.signed_image_url && (
+              <Pressable 
+                style={{ marginTop: 12, borderRadius: 12, overflow: 'hidden' }}
+                onPress={() => {
+                  setViewerImages([{ uri: ann.signed_image_url }]);
+                  setViewerVisible(true);
+                }}
+              >
+                <Image 
+                  source={{ uri: ann.signed_image_url }} 
+                  style={{ width: '100%', height: 200, resizeMode: 'cover' }} 
+                />
+              </Pressable>
+            )}
+            
             <View style={styles.annFooter}>
               <View style={{ flex: 1 }} />
               <View style={styles.annActions}>
@@ -138,7 +157,17 @@ export function PropertyAnnouncementsSubTab({
           </View>
         );
       })}
-      <View style={{ height: 100 }} />
+      
+    
+    <View style={{ height: 80 }} />
+      <ImageView
+        images={viewerImages}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+      />
     </ScrollView>
   );
 }
+
+

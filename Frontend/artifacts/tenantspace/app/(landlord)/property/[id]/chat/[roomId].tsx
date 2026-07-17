@@ -6,6 +6,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import { ChatRoom, ChatParticipant } from '../../../../../components/chat/ChatRoom';
 import { Theme } from '../../../../../constants/theme';
+import { getInitials } from '../../../../../components/ui/AvatarCluster';
 
 export default function LandlordChatScreen() {
   const { id: propertyId, roomId } = useLocalSearchParams<{ id: string, roomId: string }>();
@@ -65,7 +66,7 @@ export default function LandlordChatScreen() {
   participants[profile.id] = {
     id: profile.id,
     name: profile.full_name || 'Me',
-    initials: (profile.full_name || 'ME').substring(0, 2).toUpperCase(),
+    initials: getInitials(profile.full_name || 'ME'),
     color: '#2563EB',
   };
   
@@ -85,7 +86,7 @@ export default function LandlordChatScreen() {
         participants[m.tenant_id] = {
           id: m.tenant_id,
           name: m.profiles.full_name || 'Tenant',
-          initials: (m.profiles.full_name || 'T').substring(0, 2).toUpperCase(),
+          initials: getInitials(m.profiles.full_name || 'Tenant'),
           // Group chat -> differentiate by room colors maybe? Just stick to one for now.
           color: '#10B981', 
         };

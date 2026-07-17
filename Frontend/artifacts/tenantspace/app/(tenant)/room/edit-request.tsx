@@ -296,6 +296,8 @@ export default function EditRequestScreen() {
           </Pressable>
         )}
 
+      <View style={{ height: 80 }} />
+
       </ScrollView>
     </View>
   );
@@ -467,3 +469,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+

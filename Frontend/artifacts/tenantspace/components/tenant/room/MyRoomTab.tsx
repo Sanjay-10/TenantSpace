@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { AvatarCluster } from '../../ui/AvatarCluster';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface MyRoomTabProps {
   roomData: any;
@@ -14,11 +17,58 @@ interface MyRoomTabProps {
   groupUnreadCount?: number;
 }
 
+import { UpdatesTab } from '../../../components/tenant/room/UpdatesTab';
+
+const formatDisplayDate = (dateVal: string | Date | null | undefined) => {
+  if (!dateVal) return 'Not set';
+  if (dateVal === 'Month-to-Month') return 'Month-to-Month';
+  
+  let d: Date;
+  if (typeof dateVal === 'string') {
+    const parts = dateVal.split('T')[0].split('-');
+    if (parts.length === 3) {
+      d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    } else {
+      d = new Date(dateVal);
+    }
+  } else {
+    d = dateVal;
+  }
+  
+  if (isNaN(d.getTime())) return String(dateVal);
+  
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
 export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, leaving, onChatPress, privateUnreadCount = 0, groupUnreadCount = 0 }: MyRoomTabProps) {
+  const { profile } = useAuth();
   const prop = roomData?.properties;
   
   // Convert additional_details back to simple map for display
   const customDetails = roomData?.additional_details || [];
+
+  const allPropertyTenants: any[] = [];
+  if (prop?.rooms) {
+    prop.rooms.forEach((r: any) => {
+      const active = r.tenant_memberships?.filter((m: any) => m.status === 'active') || [];
+      active.forEach((m: any) => {
+        if (m.profiles && m.profiles.id !== profile?.id) {
+          allPropertyTenants.push(m.profiles);
+        }
+      });
+    });
+  }
+
+  // Include the landlord in the group chat avatar stack
+  if (landlordProfile) {
+    allPropertyTenants.unshift({
+      ...landlordProfile,
+      id: landlordProfile.id
+    });
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -45,8 +95,8 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
         
         {/* Landlord Chat */}
         <Pressable style={styles.chatCard} onPress={() => onChatPress('private')}>
-          <View style={[styles.avatarWrap, { backgroundColor: Theme.colors.accent }]}>
-            <Text style={{ fontSize: 20 }}>🏠</Text>
+          <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <AvatarCluster tenants={[{ full_name: landlordProfile?.full_name || 'Landlord', id: landlordProfile?.id || 'landlord' }]} size={44} fallbackInitials="L" fallbackColor="#EFF6FF" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.chatName}>{landlordProfile?.full_name || 'Landlord'}</Text>
@@ -65,10 +115,8 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
 
         {/* Group Chat */}
         <Pressable style={[styles.chatCard, { marginTop: 8 }]} onPress={() => onChatPress('group')}>
-          <View style={styles.groupAvatarWrap}>
-            <View style={[styles.miniAvatar, { backgroundColor: '#EFF6FF', left: 0, zIndex: 3 }]}><Text style={styles.miniText}>JL</Text></View>
-            <View style={[styles.miniAvatar, { backgroundColor: '#FEF3C7', left: 10, top: 6, zIndex: 2 }]}><Text style={[styles.miniText, { color: '#92400E' }]}>PP</Text></View>
-            <View style={[styles.miniAvatar, { backgroundColor: '#F0FDF4', left: 20, zIndex: 1 }]}><Text style={[styles.miniText, { color: '#065F46' }]}>TC</Text></View>
+          <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <AvatarCluster tenants={allPropertyTenants} size={44} fallbackInitials="ALL" fallbackColor="#EFF6FF" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.chatName}>{prop?.name} · All Tenants</Text>
@@ -91,8 +139,13 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
         <Text style={styles.detailsTitle}>Room Details</Text>
         
         <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Lease start</Text>
+          <Text style={styles.detailValue}>{formatDisplayDate(roomData?.created_at)}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Lease end</Text>
-          <Text style={styles.detailValue}>{roomData?.lease_end || 'Not set'}</Text>
+          <Text style={styles.detailValue}>{formatDisplayDate(roomData?.lease_end)}</Text>
         </View>
         
         <View style={styles.detailRow}>
@@ -111,9 +164,9 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
       {/* END TENANCY */}
       <View style={styles.dangerZone}>
         <Pressable style={styles.dangerBtn} onPress={onLeaveRoom} disabled={leaving}>
-          {leaving ? <ActivityIndicator size="small" color={Theme.colors.mutedFg} /> : (
+          {leaving ? <ActivityIndicator size="small" color="#DC2626" /> : (
             <>
-              <Text style={{ fontSize: 16 }}>🚪</Text>
+              <Ionicons name="exit-outline" size={18} color="#DC2626" />
               <Text style={styles.dangerBtnText}>End Tenancy</Text>
             </>
           )}
@@ -122,6 +175,8 @@ export function MyRoomTab({ roomData, landlordProfile, roommates, onLeaveRoom, l
       </View>
       
       <View style={{ height: 20 }} />
+    
+    <View style={{ height: 80 }} />
     </ScrollView>
   );
 }
@@ -158,7 +213,9 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: 12, fontWeight: '600', color: Theme.colors.fg },
   
   dangerZone: { marginTop: 8 },
-  dangerBtn: { width: '100%', padding: 14, borderRadius: 14, borderWidth: 1.5, borderColor: Theme.colors.border, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  dangerBtnText: { fontSize: 13, fontWeight: '700', color: Theme.colors.mutedFg },
+  dangerBtn: { width: '100%', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#FECACA', backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  dangerBtnText: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
   dangerHint: { fontSize: 11, color: Theme.colors.mutedFg, textAlign: 'center', marginTop: 8 }
 });
+
+

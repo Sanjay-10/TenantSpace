@@ -211,6 +211,7 @@ export default function LoginScreen() {
             </Pressable>
           </Link>
         </View>
+      <View style={{ height: 80 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -449,3 +450,5 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bold,
   },
 });
+
+

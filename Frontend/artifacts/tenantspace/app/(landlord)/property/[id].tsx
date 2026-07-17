@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { uploadFileToSupabase } from '../../../lib/storage';
 import {
   ActivityIndicator,
   Animated,
+  LayoutAnimation,
   Pressable,
   Text,
   View,
@@ -10,6 +12,8 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as DocumentPicker from 'expo-document-picker';
+import { getInitials } from '../../../components/ui/AvatarCluster';
 import { supabase } from '../../../lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -43,6 +47,7 @@ export default function PropertyDetailScreen() {
   const [annBody, setAnnBody] = useState('');
   const [annExpiry, setAnnExpiry] = useState<number>(5);
   const [isCustomExpiry, setIsCustomExpiry] = useState(false);
+  const [annImageUri, setAnnImageUri] = useState<string | null>(null);
   
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const snackbarAnim = useRef(new Animated.Value(300)).current;
@@ -66,13 +71,20 @@ export default function PropertyDetailScreen() {
 
   const showCenterFab = activeTab === 'rooms' || (activeTab === 'updates' && (updatesSubTab === 'Duties' || updatesSubTab === 'Announcements'));
 
+  const [fabLabel, setFabLabel] = useState('Add Room');
+  useEffect(() => {
+    if (showCenterFab) {
+      setFabLabel(activeTab === 'rooms' ? 'Add Room' : (updatesSubTab === 'Duties' ? 'Assign Chore' : 'New Post'));
+    }
+  }, [activeTab, updatesSubTab, showCenterFab]);
+
   // Animation value for the FAB (0 = visible, 100 = hidden below screen)
   const fabTranslateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fabTranslateY, {
-      toValue: showCenterFab ? 0 : 100,
-      duration: 250,
+      toValue: showCenterFab ? 0 : 200,
+      duration: 300,
       useNativeDriver: true,
     }).start();
   }, [showCenterFab]);
@@ -99,7 +111,7 @@ export default function PropertyDetailScreen() {
       if (error) throw error;
 
       // Sort announcements by created_at descending (newest first)
-      const sortedAnnouncements = (propData.announcements || []).sort((a: any, b: any) => 
+      const sortedAnnouncementsRaw = (propData.announcements || []).sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -107,6 +119,21 @@ export default function PropertyDetailScreen() {
       const sortedRequests = (propData.maintenance_requests || []).sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
+      
+      const sortedChores = (propData.chores || []).sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Generate signed URLs for private images in announcements
+      const finalAnnouncements = await Promise.all(sortedAnnouncementsRaw.map(async (ann: any) => {
+        if (ann.image_url) {
+          try {
+            const { data } = await supabase.storage.from('announcements-media').createSignedUrl(ann.image_url, 60 * 60 * 24);
+            return { ...ann, signed_image_url: data?.signedUrl };
+          } catch(e) {}
+        }
+        return ann;
+      }));
 
       const tMap: Record<string, any> = {};
       const processedRooms = (propData.rooms || []).map((room: any) => {
@@ -115,7 +142,7 @@ export default function PropertyDetailScreen() {
           const tenantObj = {
             id: m.profiles?.id,
             name: m.profiles?.full_name || 'Tenant',
-            initials: (m.profiles?.full_name || 'T').substring(0, 2).toUpperCase(),
+            initials: getInitials(m.profiles?.full_name),
             color: C.primary,
             roomName: room.name
           };
@@ -129,8 +156,8 @@ export default function PropertyDetailScreen() {
         property: propData,
         rooms: processedRooms,
         tenantMap: tMap,
-        chores: propData.chores || [],
-        announcements: sortedAnnouncements,
+        chores: sortedChores,
+        announcements: finalAnnouncements,
         maintenance_requests: sortedRequests
       };
     },
@@ -182,7 +209,7 @@ export default function PropertyDetailScreen() {
   // Realtime WebSockets Subscription
   useEffect(() => {
     if (!id) return;
-    const channel = supabase.channel(`property-${id}-updates`)
+    const channel = supabase.channel(`property-${id}-updates-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements', filter: `property_id=eq.${id}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['propertyData', id] });
       })
@@ -208,25 +235,55 @@ export default function PropertyDetailScreen() {
 
   
   const saveAnnouncementMutation = useMutation({
-    mutationFn: async ({ title, body, expiryDays, editId }: any) => {
+    mutationFn: async ({ title, body, expiryDays, editId, imageUri }: any) => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
+      let image_url = null;
+      if (imageUri) {
+        if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+          const extension = imageUri.split('.').pop() || 'jpg';
+          const fileName = `${Date.now()}_announcement.${extension}`;
+          
+          try {
+            const pickedMedia = {
+              uri: imageUri,
+              type: 'image' as const,
+              name: fileName,
+              mimeType: `image/${extension === 'jpg' ? 'jpeg' : extension}`
+            };
+            
+            const { url, error: uploadError } = await uploadFileToSupabase('announcements-media', id as string, pickedMedia);
+            if (uploadError || !url) throw new Error(uploadError?.message || 'Upload failed');
+            image_url = url;
+          } catch (e) {
+            console.error('Image upload failed:', e);
+            throw e;
+          }
+        }
+      }
+
       if (editId) {
-        const { data, error } = await supabase.from('announcements').update({
+        const updateData: any = {
           title: title.trim(),
           body: body.trim(),
           expires_at: expiresAt.toISOString(),
-        }).eq('id', editId).select().single();
+        };
+        if (image_url) updateData.image_url = image_url;
+        
+        const { data, error } = await supabase.from('announcements').update(updateData).eq('id', editId).select().single();
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase.from('announcements').insert({
+        const insertData: any = {
           property_id: id,
           title: title.trim(),
           body: body.trim(),
           expires_at: expiresAt.toISOString(),
-        }).select().single();
+        };
+        if (image_url) insertData.image_url = image_url;
+        
+        const { data, error } = await supabase.from('announcements').insert(insertData).select().single();
         if (error) throw error;
         return data;
       }
@@ -261,7 +318,7 @@ export default function PropertyDetailScreen() {
       return;
     }
     
-    saveAnnouncementMutation.mutate({ title: annTitle, body: annBody, expiryDays: finalExpiry, editId: editAnnId });
+    saveAnnouncementMutation.mutate({ title: annTitle, body: annBody, expiryDays: finalExpiry, editId: editAnnId, imageUri: annImageUri });
     setShowAnnModal(false);
   };
 
@@ -347,7 +404,10 @@ export default function PropertyDetailScreen() {
             <Text style={styles.headerSubtitle}>{property.address}</Text>
           </View>
         </View>
-        <Pressable style={styles.headerIconButton}>
+        <Pressable 
+          style={styles.headerIconButton} 
+          onPress={() => router.push(`/(landlord)/property/${id}/settings` as any)}
+        >
           <Text style={styles.headerIconText}>⋮</Text>
         </Pressable>
       </View>
@@ -401,6 +461,8 @@ export default function PropertyDetailScreen() {
           setAnnExpiry={setAnnExpiry}
           isCustomExpiry={isCustomExpiry}
           setIsCustomExpiry={setIsCustomExpiry}
+          annImageUri={annImageUri}
+          setAnnImageUri={setAnnImageUri}
           isSavingAnn={saveAnnouncementMutation.isPending}
           handleSaveAnnouncement={handleSaveAnnouncement}
         />
@@ -414,33 +476,42 @@ export default function PropertyDetailScreen() {
         />
 
         {/* Floating Action Buttons */}
-        <Animated.View style={[styles.fabContainerCenter, { transform: [{ translateY: fabTranslateY }] }]} pointerEvents="box-none">
+        <Animated.View style={[
+          styles.fabContainerCenter, 
+          { 
+            transform: [{ translateY: fabTranslateY }],
+            opacity: fabTranslateY.interpolate({
+              inputRange: [0, 60],
+              outputRange: [1, 0],
+              extrapolate: 'clamp'
+            })
+          }
+        ]} pointerEvents="box-none">
           <Pressable 
             style={styles.fabPrimary}
             onPress={() => {
               if (activeTab === 'rooms') {
                 setShowAddRoomModal(true);
               } else if (activeTab === 'updates' && updatesSubTab === 'Duties') {
-                router.push({ pathname: '/(landlord)/property/assign-chore', params: { propertyId: id } } as any);
+                router.navigate({ pathname: '/(landlord)/property/assign-chore', params: { propertyId: id } } as any);
               } else if (activeTab === 'updates' && updatesSubTab === 'Announcements') {
                 setEditAnnId(null);
                 setAnnTitle('');
                 setAnnBody('');
                 setAnnExpiry(5);
                 setIsCustomExpiry(false);
+                setAnnImageUri(null);
                 setShowAnnModal(true);
               }
             }}
           >
             <Text style={{ color: '#fff', fontSize: 16 }}>+</Text>
-            <Text style={styles.fabPrimaryText}>
-              {activeTab === 'rooms' ? 'Add Room' : (updatesSubTab === 'Duties' ? 'Assign Chore' : 'New Post')}
-            </Text>
+            <Text style={styles.fabPrimaryText}>{fabLabel}</Text>
           </Pressable>
         </Animated.View>
 
         <View style={styles.fabContainerRight} pointerEvents="box-none">
-          <Pressable style={styles.fabChat} onPress={() => router.push(`/(landlord)/property/${id}/chats`)}>
+          <Pressable style={styles.fabChat} onPress={() => router.navigate(`/(landlord)/property/${id}/chats`)}>
             <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
             {totalUnread > 0 && (
               <View style={styles.fabChatBadge}>
@@ -455,36 +526,30 @@ export default function PropertyDetailScreen() {
       <Animated.View style={[styles.snackbar, { transform: [{ translateY: snackbarAnim }] }]}>
         <Text style={styles.snackbarText}>{snackbarMessage}</Text>
       </Animated.View>
-
-      {/* Bottom Tabs */}
-      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.bottomTabGroup}>
+      
+      {/* Expandable Nav Bar */}
+      <View style={[styles.bottomBarWrapper, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={styles.expandableNavBar}>
           {[
-            { key: 'rooms', label: 'Rooms' },
-            { key: 'rent', label: 'Rent' },
-            { key: 'updates', label: 'Updates' }
+            { key: 'rooms', label: 'Rooms', iconBase: 'home' },
+            { key: 'rent', label: 'Rent', iconBase: 'cash' },
+            { key: 'updates', label: 'Updates', iconBase: 'notifications' }
           ].map(tab => {
             const isActive = tab.key === activeTab;
+            const iconName = isActive ? tab.iconBase : `${tab.iconBase}-outline`;
             return (
               <Pressable
                 key={tab.key}
-                onPress={() => setActiveTab(tab.key as TabKey)}
-                style={[
-                  styles.bottomTabButton,
-                  isActive && styles.bottomTabButtonActive
-                ]}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setActiveTab(tab.key as TabKey);
+                }}
+                style={styles.navItem}
               >
-                <Text style={[
-                  styles.bottomTabText,
-                  isActive && styles.bottomTabTextActive
-                ]}>
-                  {tab.label}
-                </Text>
-                {tab.key === 'updates' && !isActive && (
-                  <View style={styles.bottomTabBadge}>
-                    <Text style={styles.bottomTabBadgeText}>3</Text>
-                  </View>
-                )}
+                <View style={[styles.navIconWrapper, isActive && styles.navIconWrapperActive]}>
+                  <Ionicons name={iconName as any} size={22} color={isActive ? C.primary : C.mutedFg} />
+                </View>
+                <Text style={[styles.navText, isActive && styles.navTextActive]}>{tab.label}</Text>
               </Pressable>
             );
           })}

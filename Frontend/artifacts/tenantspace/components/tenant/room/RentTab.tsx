@@ -45,3 +45,4 @@ const styles = StyleSheet.create({
   badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' }
 });
+

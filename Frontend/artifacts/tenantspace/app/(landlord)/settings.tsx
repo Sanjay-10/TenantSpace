@@ -238,6 +238,8 @@ export default function LandlordSettingsScreen() {
           </Pressable>
         </View>
 
+      <View style={{ height: 80 }} />
+
       </ScrollView>
 
       {/* Edit Modal */}
@@ -487,3 +489,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   }
 });
+
+

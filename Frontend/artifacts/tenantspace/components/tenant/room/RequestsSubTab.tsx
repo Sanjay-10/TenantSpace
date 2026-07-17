@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Image, Alert } fr
 import { Theme } from '../../../constants/theme';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getTenantColor, getTenantTextColor } from '../../ui/AvatarCluster';
 import { supabase } from '../../../lib/supabase';
 
 const formatTimeAgo = (dateStr: string) => {
@@ -40,70 +41,85 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
     ]);
   };
 
+  const activeReqs = requests.filter((r: any) => r.status !== 'resolved');
+  const resolvedReqs = requests.filter((r: any) => r.status === 'resolved');
+
+  const renderReq = (req: any) => {
+    const sStyle = STATUS_STYLES[req.status || 'open'] || STATUS_STYLES.open;
+    const tenant = tenantMap[req.tenant_id] || { name: 'Unknown', initials: '?', color: Theme.colors.muted };
+
+    return (
+      <Pressable 
+        key={req.id} 
+        style={styles.card}
+        onPress={() => setSelectedReq(req)}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <View style={styles.cardHeader}>
+              <View style={styles.titleRow}>
+                <View style={[styles.avatar, { backgroundColor: getTenantColor(req.tenant_id) }]}>
+                  <Text style={[styles.avatarText, { color: getTenantTextColor(req.tenant_id) }]}>{tenant.initials}</Text>
+                </View>
+                <View>
+                  <Text style={styles.title}>{req.title}</Text>
+                  <Text style={styles.tenantName}>{tenant.name.split(' ')[0]}</Text>
+                </View>
+              </View>
+              <View style={[styles.badge, { backgroundColor: sStyle.bg }]}>
+                <Text style={[styles.badgeText, { color: sStyle.fg }]}>{sStyle.label}</Text>
+              </View>
+            </View>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <Text style={[styles.description, { flex: 1, marginRight: 10, marginBottom: 0 }]} numberOfLines={2}>
+                {req.description}
+              </Text>
+              {!!req.photo_url && (
+                <Ionicons name="image-outline" size={18} color="#64748B" />
+              )}
+            </View>
+
+            <Text style={[styles.timeText, { marginTop: 12 }]}>{formatTimeAgo(req.created_at)}</Text>
+          </View>
+
+          {/* Right Side: Chevron Icon */}
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, color: Theme.colors.mutedFg, fontWeight: '600', marginTop: -2 }}>›</Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
         {requests.length === 0 ? (
-        <View style={{ alignItems: 'center', marginTop: 40 }}>
-          <Text style={{ color: Theme.colors.mutedFg }}>No requests found.</Text>
-        </View>
-      ) : (
-        requests.map((req) => {
-          const sStyle = STATUS_STYLES[req.status || 'open'] || STATUS_STYLES.open;
-          const tenant = tenantMap[req.tenant_id] || { name: 'Unknown', initials: '?', color: Theme.colors.muted };
-
-          return (
-            <Pressable 
-              key={req.id} 
-              style={styles.card}
-              onPress={() => setSelectedReq(req)}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.titleRow}>
-                      <View style={[styles.avatar, { backgroundColor: tenant.color }]}>
-                        <Text style={styles.avatarText}>{tenant.initials}</Text>
-                      </View>
-                      <View>
-                        <Text style={styles.title}>{req.title}</Text>
-                        <Text style={styles.tenantName}>{tenant.name.split(' ')[0]}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.badge, { backgroundColor: sStyle.bg }]}>
-                      <Text style={[styles.badgeText, { color: sStyle.fg }]}>{sStyle.label}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <Text style={[styles.description, { flex: 1, marginRight: 10, marginBottom: 0 }]} numberOfLines={2}>
-                      {req.description}
-                    </Text>
-                    {!!req.photo_url && (
-                      <Ionicons name="image-outline" size={18} color="#64748B" />
-                    )}
-                  </View>
-
-                  <Text style={[styles.timeText, { marginTop: 12 }]}>{formatTimeAgo(req.created_at)}</Text>
-                </View>
-
-                {/* Right Side: Chevron Icon */}
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 18, color: Theme.colors.mutedFg, fontWeight: '600', marginTop: -2 }}>›</Text>
-                </View>
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Text style={{ color: Theme.colors.mutedFg }}>No requests found.</Text>
+          </View>
+        ) : (
+          <>
+            {activeReqs.map(renderReq)}
+            {resolvedReqs.length > 0 && (
+              <View style={{ marginTop: 24, marginBottom: 8, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: Theme.colors.mutedFg, textTransform: 'uppercase', letterSpacing: 1.2 }}>Resolved</Text>
               </View>
-            </Pressable>
-          );
-        })
-      )}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+            )}
+            {resolvedReqs.map(renderReq)}
+          </>
+        )}
+        
+      
+      <View style={{ height: 80 }} />
+    </ScrollView>
 
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
         <Pressable 
           style={styles.fab}
-          onPress={() => router.push({ pathname: '/(tenant)/room/new-request', params: { propertyId, roomId } } as any)}
+          onPress={() => router.navigate({ pathname: '/(tenant)/room/new-request', params: { propertyId, roomId } } as any)}
         >
           <Text style={styles.fabText}>+ New Request</Text>
         </Pressable>
@@ -127,8 +143,8 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
                 <ScrollView contentContainerStyle={{ padding: 24 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <View style={styles.titleRow}>
-                      <View style={[styles.avatar, { backgroundColor: tenant.color }]}>
-                        <Text style={styles.avatarText}>{tenant.initials}</Text>
+                      <View style={[styles.avatar, { backgroundColor: getTenantColor(selectedReq.tenant_id) }]}>
+                        <Text style={[styles.avatarText, { color: getTenantTextColor(selectedReq.tenant_id) }]}>{tenant.initials}</Text>
                       </View>
                       <View>
                         <Text style={[styles.title, { fontSize: 16 }]}>{tenant.name}</Text>
@@ -160,7 +176,7 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
                         onPress={() => {
                           const reqId = selectedReq.id;
                           setSelectedReq(null);
-                          router.push({ pathname: '/(tenant)/room/edit-request', params: { requestId: reqId, propertyId, roomId } } as any);
+                          router.navigate({ pathname: '/(tenant)/room/edit-request', params: { requestId: reqId, propertyId, roomId } } as any);
                         }}
                       >
                         <Text style={[styles.modalBtnText, { color: Theme.colors.primary }]}>Edit Request</Text>
@@ -173,7 +189,9 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
                       </Pressable>
                     </View>
                   )}
-                </ScrollView>
+                
+                <View style={{ height: 80 }} />
+    </ScrollView>
               );
             })()}
           </View>
@@ -326,3 +344,5 @@ const styles = StyleSheet.create({
     color: Theme.colors.mutedFg,
   },
 });
+
+

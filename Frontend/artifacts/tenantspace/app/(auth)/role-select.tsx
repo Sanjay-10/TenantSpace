@@ -226,6 +226,7 @@ export default function RoleSelectScreen() {
             </Text>
           )}
         </Pressable>
+      <View style={{ height: 80 }} />
       </ScrollView>
     </View>
   );
@@ -475,3 +476,5 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bold,
   },
 });
+
+

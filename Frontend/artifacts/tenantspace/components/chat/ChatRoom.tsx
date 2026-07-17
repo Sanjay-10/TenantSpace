@@ -31,6 +31,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ImageView from 'react-native-image-viewing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { pickImageOrVideo, pickDocument, uploadFileToSupabase, getAuthenticatedMediaUrl, PickedMedia } from '../../lib/storage';
+import { getTenantColor, getTenantTextColor, getInitials } from '../ui/AvatarCluster';
 
 export interface ChatParticipant {
   id: string;
@@ -188,7 +189,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
 
   // Subscribe to real-time new messages
   useEffect(() => {
-    const channelName = roomId ? `chat-room-${roomId}` : `chat-prop-${propertyId}`;
+    const channelName = roomId ? `chat-room-${roomId}-${Date.now()}` : `chat-prop-${propertyId}-${Date.now()}`;
     
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { 
@@ -339,78 +340,37 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         rawName += extension;
       }
       
-      // 2. Sync to permanent local storage & Gallery (for photos/videos)
       const isMedia = item.media_type === 'image' || item.media_type === 'video';
-      const localUri = await downloadAndSyncMedia(rawName, item.media_url, isMedia);
-      
-      if (!localUri) {
-        Alert.alert('Error', 'Could not access media.');
-        return;
-      }
-      
+
       // 3. Execute requested action
       if (action === 'share') {
+        const localUri = await downloadAndSyncMedia(rawName, item.media_url, isMedia);
+        if (!localUri) throw new Error('Could not download media for sharing');
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(localUri, { mimeType, UTI: uti });
         } else {
           Alert.alert('Unavailable', 'Sharing is not available on this device');
         }
       } else if (action === 'download') {
-        let gallerySaved = false;
-        if (isMedia && Platform.OS !== 'web') {
-          try {
-            const { status } = await MediaLibrary.getPermissionsAsync();
-            gallerySaved = status === 'granted';
-          } catch (e) {
-            // Fails in Expo Go
-          }
-        }
-
-        if (gallerySaved) {
-          Alert.alert('Saved', 'Media saved to your Gallery!');
-        } else if (Platform.OS === 'android') {
-          try {
-            const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-            if (permissions.granted) {
-              const cleanFileName = rawName.replace(/[^a-zA-Z0-9.-]/g, '_');
-              const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-                permissions.directoryUri,
-                cleanFileName,
-                mimeType
-              );
-              const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
-              await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-              Alert.alert('Saved', 'File downloaded successfully to your chosen folder!');
-            }
-          } catch (e) {
-            Alert.alert('Error', 'Could not save file to device.');
-          }
+        if (isMedia) {
+          const localUri = await downloadAndSyncMedia(rawName, item.media_url, true);
+          if (localUri) Alert.alert('Saved', 'Media saved to your Gallery!');
         } else {
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(localUri, { mimeType, UTI: uti });
+          // For documents, best cross-platform way to download is via browser
+          const { data } = await supabase.storage.from('chat-media').createSignedUrl(item.media_url, 60 * 60);
+          if (data?.signedUrl) {
+            Linking.openURL(data.signedUrl);
+          } else {
+            Alert.alert('Error', 'Could not generate download link.');
           }
         }
       } else {
-        // action === 'open' (mainly for documents)
-        if (Platform.OS === 'android') {
-          try {
-            const contentUri = await FileSystem.getContentUriAsync(localUri);
-            await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-              data: contentUri,
-              flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-              type: mimeType,
-            });
-          } catch (intentError) {
-            if (await Sharing.isAvailableAsync()) {
-              await Sharing.shareAsync(localUri, { mimeType });
-            }
-          }
+        // action === 'open'
+        const { data } = await supabase.storage.from('chat-media').createSignedUrl(item.media_url, 60 * 60);
+        if (data?.signedUrl) {
+          Linking.openURL(data.signedUrl);
         } else {
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(localUri, { UTI: uti });
-          } else {
-            Linking.openURL(localUri);
-          }
+          Alert.alert('Error', 'Could not open media.');
         }
       }
     } catch (e) {
@@ -510,6 +470,11 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
     const isMe = item.sender_id === currentUserId;
     const participant = participants[item.sender_id] || { name: 'Unknown', initials: '?' };
     
+    const bgColor = !isMe ? '#DBEAFE' : undefined;
+    const nameColor = !isMe ? getTenantTextColor(item.sender_id) : undefined;
+    const avatarBgColor = !isMe ? getTenantColor(item.sender_id) : undefined;
+    const avatarTextColor = !isMe ? getTenantTextColor(item.sender_id) : undefined;
+    
     // Check if we should show avatar/name (if previous message is from someone else, or a long time ago)
     const prevMessage = messages[index + 1]; // +1 because array is reversed (newest first)
     const showAvatar = !isMe && (!prevMessage || prevMessage.sender_id !== item.sender_id);
@@ -536,8 +501,8 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         {!isMe && (
           <View style={styles.avatarSpace}>
             {showAvatar && (
-              <View style={[styles.avatar, { backgroundColor: participant.color || '#E2E8F0' }]}>
-                <Text style={styles.avatarText}>{participant.initials}</Text>
+              <View style={[styles.avatar, { backgroundColor: avatarBgColor || '#E2E8F0' }]}>
+                <Text style={[styles.avatarText, { color: avatarTextColor }]}>{participant.initials}</Text>
               </View>
             )}
           </View>
@@ -550,6 +515,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
               <View style={[
                 styles.bubble, 
                 isMe ? styles.bubbleMe : styles.bubbleThem,
+                !isMe && { backgroundColor: bgColor, borderColor: bgColor },
                 item.media_url && { paddingHorizontal: 3, paddingTop: 3 },
                 !item.text && (item.media_type === 'image' || item.media_type === 'video') && { paddingBottom: 3 }
               ]}>
@@ -560,7 +526,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                     marginBottom: 4,
                     marginLeft: item.media_url ? 5 : 0,
                     marginTop: item.media_url ? 3 : 0,
-                    color: participant.color || Theme.colors.primary 
+                    color: nameColor 
                   }}>
                     {participant.name}
                   </Text>
@@ -693,7 +659,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                     (item.media_type === 'image' || item.media_type === 'video') && { paddingHorizontal: 6, paddingTop: 2 }
                   ]}>
                     {item.text}
-                    <Text style={{ fontSize: 11, color: isMe ? '#3B82F6' : '#fff', opacity: 0 }}>{'        00:00 PM'}</Text>
+                    <Text style={{ fontSize: 11, color: isMe ? '#3B82F6' : bgColor }}>{'        00:00 PM'}</Text>
                   </Text>
                 ) : item.media_type === 'document' ? (
                    <View style={{ height: 14 }} />
@@ -913,7 +879,7 @@ const styles = StyleSheet.create({
   messageRowMe: { justifyContent: 'flex-end' },
   messageRowThem: { justifyContent: 'flex-start' },
   
-  avatarSpace: { width: 32, marginRight: 8, justifyContent: 'flex-end', paddingBottom: 2 },
+  avatarSpace: { width: 32, marginRight: 8, justifyContent: 'flex-start', paddingTop: 4 },
   avatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 10, fontWeight: '700', color: '#fff' },
   

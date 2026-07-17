@@ -156,6 +156,7 @@ export default function AddRoomModal({ visible, onClose, propertyId, propertyNam
                 </View>
               </>
               )}
+            
             </ScrollView>
 
             {!createdCode && (
