@@ -29,6 +29,7 @@ import { supabase } from '../../../lib/supabase';
 import { getTenantColor, getTenantTextColor, getInitials } from '../../../components/ui/AvatarCluster';
 import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
 
 const formatLocalDate = (d: Date) => {
   const y = d.getFullYear();
@@ -109,6 +110,7 @@ export default function RoomDetailScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [addingDetail, setAddingDetail] = useState(false);
+  const { showAlert } = usePremiumAlert();
   
   // Edit State
   const [isMonthToMonth, setIsMonthToMonth] = useState(false);
@@ -161,7 +163,7 @@ export default function RoomDetailScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      showAlert({ title: 'Error', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
@@ -202,13 +204,13 @@ export default function RoomDetailScreen() {
             getMimeType(doc.name)
           );
           await FileSystem.writeAsStringAsync(savedUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
-          Alert.alert('Success', 'Document downloaded successfully!');
+          showAlert({ title: 'Success', message: 'Document downloaded successfully!', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
         }
       } else {
         await Sharing.shareAsync(localUri, { mimeType: getMimeType(doc.name) });
       }
     } catch (err: any) {
-      Alert.alert('Download Error', 'Could not save the document.');
+      showAlert({ title: 'Download Error', message: 'Could not save the document.', iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
@@ -224,59 +226,67 @@ export default function RoomDetailScreen() {
       }
       await Sharing.shareAsync(fileUri, { mimeType: getMimeType(doc.name) });
     } catch (err: any) {
-      Alert.alert('Share Error', err.message);
+      showAlert({ title: 'Share Error', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
   const handleDeleteDoc = async (doc: any) => {
-    Alert.alert('Delete Document', 'Are you sure you want to permanently delete this document?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Delete', 
-        style: 'destructive', 
-        onPress: async () => {
-          try {
-            const { data: dbDoc, error: fetchError } = await supabase
-              .from('room_documents')
-              .select('file_url')
-              .eq('id', doc.id)
-              .single();
+    showAlert({
+      title: 'Delete Document',
+      message: 'Are you sure you want to permanently delete this document?',
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              const { data: dbDoc, error: fetchError } = await supabase
+                .from('room_documents')
+                .select('file_url')
+                .eq('id', doc.id)
+                .single();
+                
+              if (fetchError || !dbDoc) throw new Error('Document no longer exists in database.');
               
-            if (fetchError || !dbDoc) throw new Error('Document no longer exists in database.');
-            
-            let rawPath = dbDoc.file_url;
-            if (rawPath.includes('/public/property-docs/')) {
-              rawPath = rawPath.split('/public/property-docs/')[1];
+              let rawPath = dbDoc.file_url;
+              if (rawPath.includes('/public/property-docs/')) {
+                rawPath = rawPath.split('/public/property-docs/')[1];
+              }
+              
+              const cleanPath = rawPath.split('?')[0];
+              
+              const { data, error: storageError } = await supabase.storage.from('property-docs').remove([cleanPath]);
+              if (storageError) throw new Error(storageError.message);
+              
+              const { error: delError } = await supabase.from('room_documents').delete().eq('id', doc.id);
+              if (delError) throw delError;
+              
+              queryClient.invalidateQueries({ queryKey: ['roomData', id] });
+            } catch (err: any) {
+              showAlert({ title: 'Delete Failed', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
             }
-            
-            const cleanPath = rawPath.split('?')[0];
-            
-            const { data, error: storageError } = await supabase.storage.from('property-docs').remove([cleanPath]);
-            if (storageError) throw new Error(storageError.message);
-            
-            const { error: delError } = await supabase.from('room_documents').delete().eq('id', doc.id);
-            if (delError) throw delError;
-            
-            queryClient.invalidateQueries({ queryKey: ['roomData', id] });
-          } catch (err: any) {
-            Alert.alert('Delete Failed', err.message);
           }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const handleOpenOptions = (doc: any) => {
-    Alert.alert(
-      'Document Options',
-      doc.name,
-      [
-        { text: 'Download', onPress: () => handleDownload(doc) },
-        { text: 'Share', onPress: () => handleShare(doc) },
+    showAlert({
+      title: 'Document Options',
+      message: doc.name,
+      iconName: 'document-text-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Download', onPress: () => handleDownload(doc), style: 'default' },
+        { text: 'Share', onPress: () => handleShare(doc), style: 'default' },
         { text: 'Delete', onPress: () => handleDeleteDoc(doc), style: 'destructive' },
         { text: 'Cancel', style: 'cancel' }
       ]
-    );
+    });
   };
 
   useEffect(() => {
@@ -376,7 +386,7 @@ export default function RoomDetailScreen() {
       setIsEditing(false);
       setAddingDetail(false);
     },
-    onError: (err: any) => Alert.alert('Error saving', err.message)
+    onError: (err: any) => showAlert({ title: 'Error saving', message: err.message, iconName: 'alert-circle', variant: 'horizontal' })
   });
 
   const uploadDocMutation = useMutation({
@@ -413,7 +423,7 @@ export default function RoomDetailScreen() {
       if (dbError) throw dbError;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roomData', id] }),
-    onError: (err: any) => Alert.alert('Upload Failed', err.message)
+    onError: (err: any) => showAlert({ title: 'Upload Failed', message: err.message, iconName: 'alert-circle', variant: 'horizontal' })
   });
 
   const deleteRoomMutation = useMutation({
@@ -425,18 +435,20 @@ export default function RoomDetailScreen() {
       queryClient.invalidateQueries(); // Invalidate all to refresh the parent property screen
       router.back();
     },
-    onError: (err: any) => Alert.alert('Error deleting room', err.message)
+    onError: (err: any) => showAlert({ title: 'Error deleting room', message: err.message, iconName: 'alert-circle', variant: 'horizontal' })
   });
 
   const confirmDeleteRoom = () => {
-    Alert.alert(
-      "Delete Room",
-      "Are you sure you want to delete this room? All documents and details will be permanently removed.",
-      [
+    showAlert({
+      title: "Delete Room",
+      message: "Are you sure you want to delete this room? All documents and details will be permanently removed.",
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: () => deleteRoomMutation.mutate() }
       ]
-    );
+    });
   };
 
   const startEditing = () => {
@@ -501,7 +513,7 @@ export default function RoomDetailScreen() {
       )}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+          <Ionicons name="chevron-back" size={24} color="#64748B" />
         </Pressable>
         <View style={styles.headerTitles}>
           <Text style={styles.headerTitle}>{roomData.name}</Text>
@@ -928,9 +940,9 @@ export default function RoomDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  backBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#E8ECEF' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E8ECEF', paddingHorizontal: 16, paddingBottom: 16, },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { fontSize: 16, color: Theme.colors.mutedFg },
   headerTitles: { flex: 1, paddingHorizontal: 12 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.fg, letterSpacing: -0.4 },

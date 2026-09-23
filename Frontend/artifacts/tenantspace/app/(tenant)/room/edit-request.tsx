@@ -7,6 +7,8 @@ import { Theme } from '../../../constants/theme';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
+import { FormInput } from '../../../components/ui/FormInput';
 
 const CATEGORIES = [
   { id: 'plumbing', label: 'Plumbing', icon: '🚿' },
@@ -28,6 +30,7 @@ export default function EditRequestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
+  const { showAlert } = usePremiumAlert();
 
   const [category, setCategory] = useState<string>('plumbing');
   const [priority, setPriority] = useState<string>('normal');
@@ -39,6 +42,7 @@ export default function EditRequestScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [errors, setErrors] = useState<{title?: string, description?: string}>({});
 
   useEffect(() => {
     async function loadRequest() {
@@ -61,7 +65,7 @@ export default function EditRequestScreen() {
         setCanEdit(data.tenant_id === profile?.id);
 
       } catch (err: any) {
-        Alert.alert('Error loading request', err.message);
+        showAlert({ title: 'Error loading request', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
         router.back();
       } finally {
         setIsLoading(false);
@@ -85,12 +89,18 @@ export default function EditRequestScreen() {
   };
 
   const handleUpdate = async () => {
-    if (!title.trim() || !description.trim()) {
-      Alert.alert('Missing Fields', 'Please provide a title and description.');
+    const newErrors: any = {};
+    if (!title.trim()) newErrors.title = 'Title is required';
+    if (!description.trim()) newErrors.description = 'Description is required';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
+
     if (!canEdit) {
-      Alert.alert('Not Allowed', 'You can only edit requests that you created.');
+      showAlert({ title: 'Not Allowed', message: 'You can only edit requests that you created.', iconName: 'alert-circle', variant: 'horizontal' });
       return;
     }
 
@@ -131,7 +141,7 @@ export default function EditRequestScreen() {
       if (error) throw error;
       router.back();
     } catch (err: any) {
-      Alert.alert('Error updating request', err.message);
+      showAlert({ title: 'Error updating request', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setIsSubmitting(false);
     }
@@ -140,24 +150,30 @@ export default function EditRequestScreen() {
   const handleDelete = async () => {
     if (!canEdit) return;
     
-    Alert.alert('Delete Request', 'Are you sure you want to permanently delete this maintenance request?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Delete', 
-        style: 'destructive', 
-        onPress: async () => {
-          setIsDeleting(true);
-          try {
-            const { error } = await supabase.from('maintenance_requests').delete().eq('id', requestId);
-            if (error) throw error;
-            router.back();
-          } catch (err: any) {
-            Alert.alert('Error deleting request', err.message);
-            setIsDeleting(false);
+    showAlert({
+      title: 'Delete Request',
+      message: 'Are you sure you want to permanently delete this maintenance request?',
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const { error } = await supabase.from('maintenance_requests').delete().eq('id', requestId);
+              if (error) throw error;
+              router.back();
+            } catch (err: any) {
+              showAlert({ title: 'Error deleting request', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
+              setIsDeleting(false);
+            }
           }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   if (isLoading) {
@@ -173,7 +189,7 @@ export default function EditRequestScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+          <Ionicons name="chevron-back" size={24} color="#64748B" />
         </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>{canEdit ? 'Edit Request' : 'View Request'}</Text>
@@ -238,27 +254,28 @@ export default function EditRequestScreen() {
         </View>
 
         {/* Title section */}
-        <Text style={[styles.sectionTitle, { marginTop: 10 }]}>TITLE</Text>
-        <TextInput 
-          style={styles.input}
-          placeholder="e.g. Boiler not heating"
-          placeholderTextColor={Theme.colors.mutedFg}
+        <FormInput
+          label="TITLE"
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(txt) => { setTitle(txt); setErrors(prev => ({...prev, title: undefined})); }}
+          placeholder="e.g. Boiler not heating"
           editable={canEdit}
+          error={errors.title}
+          containerStyle={{ marginTop: 10 }}
         />
 
         {/* Description section */}
-        <Text style={[styles.sectionTitle, { marginTop: 10 }]}>DESCRIPTION</Text>
-        <TextInput 
-          style={[styles.input, styles.textArea]}
-          placeholder="Describe the issue in detail — when it started, how severe it is..."
-          placeholderTextColor={Theme.colors.mutedFg}
+        <FormInput
+          label="DESCRIPTION"
           value={description}
-          onChangeText={setDescription}
+          onChangeText={(txt) => { setDescription(txt); setErrors(prev => ({...prev, description: undefined})); }}
+          placeholder="Describe the issue in detail — when it started, how severe it is..."
           multiline
           textAlignVertical="top"
           editable={canEdit}
+          error={errors.description}
+          style={styles.textArea}
+          containerStyle={{ marginTop: 10 }}
         />
 
         {/* Photo Attachment */}
@@ -306,16 +323,14 @@ export default function EditRequestScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.bg },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#E8ECEF',
     paddingHorizontal: 16,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  backBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { fontSize: 16, color: Theme.colors.mutedFg },
   headerTitleContainer: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.fg, letterSpacing: -0.4 },
@@ -405,7 +420,7 @@ const styles = StyleSheet.create({
   },
   
   attachBtn: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#E8ECEF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Theme.colors.border,

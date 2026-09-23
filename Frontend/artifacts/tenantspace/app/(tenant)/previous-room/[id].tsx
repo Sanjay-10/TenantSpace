@@ -16,6 +16,7 @@ import * as Sharing from 'expo-sharing';
 import ImageViewing from 'react-native-image-viewing';
 import { decode } from 'base64-arraybuffer';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
 
 type Tab = 'room' | 'docs';
 
@@ -35,6 +36,7 @@ export default function PreviousRoomScreen() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { showAlert } = usePremiumAlert();
   
   const [activeTab, setActiveTab] = useState<Tab>('room');
   
@@ -169,7 +171,7 @@ export default function PreviousRoomScreen() {
       refetchRoom();
       queryClient.invalidateQueries({ queryKey: ['tenantPreviousRooms', profile?.id] });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update.');
+      showAlert({ title: 'Error', message: err.message || 'Failed to update.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setSaving(false);
     }
@@ -198,10 +200,12 @@ export default function PreviousRoomScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Room',
-      'Are you sure you want to delete this previous room and all its documents? This cannot be undone.',
-      [
+    showAlert({
+      title: 'Delete Room',
+      message: 'Are you sure you want to delete this previous room and all its documents? This cannot be undone.',
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
@@ -212,12 +216,12 @@ export default function PreviousRoomScreen() {
               queryClient.invalidateQueries({ queryKey: ['tenantPreviousRooms', profile?.id] });
               router.replace('/(tenant)/home');
             } catch (err) {
-              Alert.alert('Error', 'Failed to delete room.');
+              showAlert({ title: 'Error', message: 'Failed to delete room.', iconName: 'alert-circle', variant: 'horizontal' });
             }
           }
         }
       ]
-    );
+    });
   };
 
   const handleUploadDoc = async () => {
@@ -274,7 +278,7 @@ export default function PreviousRoomScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       refetchDocs();
     } catch (err: any) {
-      Alert.alert('Upload Failed', err.message || 'Could not upload document.');
+      showAlert({ title: 'Upload Failed', message: err.message || 'Could not upload document.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setUploading(false);
     }
@@ -305,7 +309,7 @@ export default function PreviousRoomScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
           <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <Ionicons name="arrow-back" size={24} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
           <View style={{ flex: 1, marginHorizontal: 12 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{room.property_name}</Text>
@@ -506,7 +510,7 @@ export default function PreviousRoomScreen() {
                       }
 
                       return (
-                        <Pressable key={doc.id} onPress={() => handleOpenDoc(doc)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#F8FAFC', borderRadius: 12, gap: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                        <Pressable key={doc.id} onPress={() => handleOpenDoc(doc)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#E8ECEF', borderRadius: 12, gap: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
                           <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {isImage ? (
                               <Image source={{ uri: doc.file_url }} style={{ width: '100%', height: '100%' }} />
@@ -528,50 +532,56 @@ export default function PreviousRoomScreen() {
                             
                             <Pressable 
                               onPress={() => {
-                                Alert.alert('Delete Document', 'Are you sure you want to delete this document?', [
-                                  { text: 'Cancel', style: 'cancel' },
-                                  { 
-                                    text: 'Delete', 
-                                    style: 'destructive', 
-                                    onPress: async () => {
-                                      try {
-                                        // 1. Fetch exact original path from DB to bypass ALL local cache issues
-                                        const { data: dbDoc, error: fetchError } = await supabase
-                                          .from('tenant_previous_room_docs')
-                                          .select('file_url')
-                                          .eq('id', doc.id)
-                                          .single();
+                                showAlert({
+                                  title: 'Delete Document',
+                                  message: 'Are you sure you want to delete this document?',
+                                  iconName: 'trash-outline',
+                                  variant: 'centered',
+                                  buttons: [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    { 
+                                      text: 'Delete', 
+                                      style: 'destructive', 
+                                      onPress: async () => {
+                                        try {
+                                          // 1. Fetch exact original path from DB to bypass ALL local cache issues
+                                          const { data: dbDoc, error: fetchError } = await supabase
+                                            .from('tenant_previous_room_docs')
+                                            .select('file_url')
+                                            .eq('id', doc.id)
+                                            .single();
+                                            
+                                          if (fetchError || !dbDoc) throw new Error('Document no longer exists in database.');
                                           
-                                        if (fetchError || !dbDoc) throw new Error('Document no longer exists in database.');
-                                        
-                                        let rawPath = dbDoc.file_url;
-                                        if (rawPath.includes('tenant-docs/')) {
-                                          rawPath = rawPath.split('tenant-docs/')[1];
+                                          let rawPath = dbDoc.file_url;
+                                          if (rawPath.includes('tenant-docs/')) {
+                                            rawPath = rawPath.split('tenant-docs/')[1];
+                                          }
+                                          
+                                          const cleanPath = rawPath.split('?')[0];
+                                          
+                                          // 2. Delete from Storage
+                                          const { data, error: storageError } = await supabase.storage.from('tenant-docs').remove([cleanPath]);
+                                          
+                                          if (storageError) {
+                                            throw new Error(storageError.message);
+                                          }
+                                          if (!data || data.length === 0) {
+                                            throw new Error(`Storage returned 0 files deleted for path: ${cleanPath}`);
+                                          }
+                                          
+                                          // 3. Delete from Database
+                                          const { error: dbError } = await supabase.from('tenant_previous_room_docs').delete().eq('id', doc.id);
+                                          if (dbError) throw dbError;
+                                          
+                                          refetchDocs();
+                                        } catch (err: any) {
+                                          showAlert({ title: 'Delete Failed', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
                                         }
-                                        
-                                        const cleanPath = rawPath.split('?')[0];
-                                        
-                                        // 2. Delete from Storage
-                                        const { data, error: storageError } = await supabase.storage.from('tenant-docs').remove([cleanPath]);
-                                        
-                                        if (storageError) {
-                                          throw new Error(storageError.message);
-                                        }
-                                        if (!data || data.length === 0) {
-                                          throw new Error(`Storage returned 0 files deleted for path: ${cleanPath}`);
-                                        }
-                                        
-                                        // 3. Delete from Database
-                                        const { error: dbError } = await supabase.from('tenant_previous_room_docs').delete().eq('id', doc.id);
-                                        if (dbError) throw dbError;
-                                        
-                                        refetchDocs();
-                                      } catch (err: any) {
-                                        Alert.alert('Delete Failed', err.message);
                                       }
                                     }
-                                  }
-                                ]);
+                                  ]
+                                });
                               }} 
                               style={{ padding: 8 }}
                               hitSlop={8}
@@ -638,10 +648,8 @@ export default function PreviousRoomScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.bg },
   header: {
-    backgroundColor: Theme.colors.card,
-    borderBottomWidth: 1,
-    borderColor: Theme.colors.border,
-  },
+    backgroundColor: '#E8ECEF',
+    },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,7 +660,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Theme.colors.muted,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

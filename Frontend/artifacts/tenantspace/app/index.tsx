@@ -32,7 +32,7 @@ export default function Index() {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#E8ECEF',
       }}
     >
       <ActivityIndicator size="large" color="#2563EB" />

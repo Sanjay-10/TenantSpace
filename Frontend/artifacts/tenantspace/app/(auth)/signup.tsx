@@ -18,6 +18,8 @@ import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
+import { usePremiumAlert } from '../../contexts/AlertContext';
+import { FormInput } from '../../components/ui/FormInput';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -26,29 +28,36 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
-  const [focused, setFocused] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{fullName?: string, email?: string, password?: string, confirmPassword?: string}>({});
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showAlert } = usePremiumAlert();
 
   // Password matching live check
   const passwordsEntered = password.length > 0 && confirmPassword.length > 0;
   const passwordsMatch = password === confirmPassword;
 
   const handleSignUp = async () => {
-    if (!fullName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields.');
+    const newErrors: any = {};
+    if (!fullName.trim()) newErrors.fullName = 'Full Name is required';
+    if (!email.trim()) newErrors.email = 'Email is required';
+    if (!password.trim()) newErrors.password = 'Password is required';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long.');
+      setErrors({ password: 'Password must be at least 6 characters long.' });
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      setErrors({ confirmPassword: 'Passwords do not match.' });
       return;
     }
 
@@ -66,7 +75,7 @@ export default function SignUpScreen() {
       });
 
       if (error) {
-        Alert.alert('Sign Up Failed', error.message);
+        showAlert({ title: 'Sign Up Failed', message: error.message, iconName: 'alert-circle', variant: 'horizontal' });
         setLoading(false);
         return;
       }
@@ -93,7 +102,7 @@ export default function SignUpScreen() {
       }
     } catch (err) {
       console.error('Sign up error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert({ title: 'Error', message: 'An unexpected error occurred. Please try again.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setLoading(false);
     }
@@ -116,7 +125,7 @@ export default function SignUpScreen() {
         <View style={styles.topNavRow}>
           <Link href="/(auth)/login" asChild>
             <Pressable style={styles.backButton}>
-              <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+              <Ionicons name="chevron-back" size={24} color="#64748B" />
             </Pressable>
           </Link>
           <View style={styles.headerTitleContainer}>
@@ -152,113 +161,72 @@ export default function SignUpScreen() {
         {/* Form Card */}
         <View style={styles.formCard}>
           {/* Full Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              value={fullName}
-              onChangeText={setFullName}
-              onFocus={() => setFocused('fullName')}
-              onBlur={() => setFocused(null)}
-              placeholder="Sarah Mitchell"
-              placeholderTextColor={Theme.colors.mutedFg}
-              autoCapitalize="words"
-              style={[
-                styles.input,
-                focused === 'fullName' && styles.inputFocused,
-              ]}
-            />
-          </View>
+          <FormInput
+            label="Full Name"
+            value={fullName}
+            onChangeText={(txt) => { 
+              setFullName(txt); 
+              if (errors.fullName) setErrors(prev => ({...prev, fullName: undefined})); 
+            }}
+            placeholder="Full name"
+            autoCapitalize="words"
+            error={errors.fullName}
+          />
 
           {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
-              placeholder="you@example.com"
-              placeholderTextColor={Theme.colors.mutedFg}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.input,
-                focused === 'email' && styles.inputFocused,
-              ]}
-            />
-          </View>
+          <FormInput
+            label="Email"
+            value={email}
+            onChangeText={(txt) => { 
+              setEmail(txt); 
+              if (errors.email) setErrors(prev => ({...prev, email: undefined})); 
+            }}
+            placeholder="Email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={errors.email}
+          />
 
           {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setFocused('password')}
-                onBlur={() => setFocused(null)}
-                placeholder="At least 6 characters"
-                placeholderTextColor={Theme.colors.mutedFg}
-                secureTextEntry={!showPw}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  focused === 'password' && styles.inputFocused,
-                ]}
-              />
-              <Pressable
-                onPress={() => setShowPw((s) => !s)}
-                style={styles.eyeButton}
-              >
+          <FormInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 6 characters"
+            secureTextEntry={!showPw}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="oneTimeCode"
+            error={errors.password}
+            style={styles.passwordInput}
+            rightElement={
+              <Pressable onPress={() => setShowPw((s) => !s)} style={styles.eyeButton}>
                 <Ionicons name={showPw ? 'eye-off' : 'eye'} size={22} color={Theme.colors.mutedFg} />
               </Pressable>
-            </View>
-          </View>
+            }
+          />
 
           {/* Confirm Password */}
-          <View style={styles.inputGroup}>
-            <View style={styles.confirmLabelRow}>
-              <Text style={styles.label}>Confirm Password</Text>
-              {passwordsEntered && (
-                <Text
-                  style={[
-                    styles.matchText,
-                    passwordsMatch ? styles.matchSuccess : styles.matchError,
-                  ]}
-                >
-                  {passwordsMatch ? '✓ Match' : '✗ Do not match'}
-                </Text>
-              )}
-            </View>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                onFocus={() => setFocused('confirmPassword')}
-                onBlur={() => setFocused(null)}
-                placeholder="••••••••"
-                placeholderTextColor={Theme.colors.mutedFg}
-                secureTextEntry={!showConfirmPw}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  focused === 'confirmPassword' && styles.inputFocused,
-                  passwordsEntered && !passwordsMatch && styles.inputError,
-                ]}
-              />
-              <Pressable
-                onPress={() => setShowConfirmPw((s) => !s)}
-                style={styles.eyeButton}
-              >
+          <FormInput
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="••••••••"
+            secureTextEntry={!showConfirmPw}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="oneTimeCode"
+            error={errors.confirmPassword || (passwordsEntered && !passwordsMatch ? 'Passwords do not match.' : undefined)}
+            style={styles.passwordInput}
+            rightElement={
+              <Pressable onPress={() => setShowConfirmPw((s) => !s)} style={styles.eyeButton}>
                 <Ionicons name={showConfirmPw ? 'eye-off' : 'eye'} size={22} color={Theme.colors.mutedFg} />
               </Pressable>
-            </View>
-          </View>
+            }
+          />
 
           {/* Continue CTA */}
           <Pressable
@@ -287,7 +255,7 @@ export default function SignUpScreen() {
           {/* Social Auth */}
           <View style={styles.socialContainer}>
             <Pressable
-              onPress={() => Alert.alert('Social Auth', 'Apple Sign Up')}
+              onPress={() => showAlert({ title: 'Social Auth', message: 'Apple Sign Up is coming soon.', iconName: 'information-circle', variant: 'horizontal' })}
               style={({ pressed }) => [
                 styles.socialButton,
                 pressed && styles.socialButtonPressed,
@@ -298,7 +266,7 @@ export default function SignUpScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => Alert.alert('Social Auth', 'Google Sign Up')}
+              onPress={() => showAlert({ title: 'Social Auth', message: 'Google Sign Up is coming soon.', iconName: 'information-circle', variant: 'horizontal' })}
               style={({ pressed }) => [
                 styles.socialButton,
                 pressed && styles.socialButtonPressed,
@@ -345,10 +313,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: Theme.radius.sm,
-    backgroundColor: Theme.colors.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

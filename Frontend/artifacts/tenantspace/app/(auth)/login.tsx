@@ -18,22 +18,30 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
+import { usePremiumAlert } from '../../contexts/AlertContext';
+import { FormInput } from '../../components/ui/FormInput';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [focused, setFocused] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{email?: string, password?: string}>({});
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showAlert } = usePremiumAlert();
 
   const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields.');
+    const newErrors: any = {};
+    if (!email.trim()) newErrors.email = 'Email is required';
+    if (!password.trim()) newErrors.password = 'Password is required';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
     setLoading(true);
     try {
@@ -43,13 +51,13 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        Alert.alert('Login Failed', error.message);
+        showAlert({ title: 'Login Failed', message: error.message, iconName: 'alert-circle', variant: 'horizontal' });
       } else {
         router.replace('/');
       }
     } catch (err) {
       console.error('Login error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert({ title: 'Error', message: 'An unexpected error occurred. Please try again.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setLoading(false);
     }
@@ -93,54 +101,43 @@ export default function LoginScreen() {
         {/* Form Card */}
         <View style={styles.formCard}>
           {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
-              placeholder="you@example.com"
-              placeholderTextColor={Theme.colors.mutedFg}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.input,
-                focused === 'email' && styles.inputFocused,
-              ]}
-            />
-          </View>
+          <FormInput
+            label="Email"
+            value={email}
+            onChangeText={(txt) => { 
+              setEmail(txt); 
+              if (errors.email) setErrors(prev => ({...prev, email: undefined})); 
+            }}
+            placeholder="Email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={errors.email}
+          />
 
           {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setFocused('password')}
-                onBlur={() => setFocused(null)}
-                placeholder="••••••••"
-                placeholderTextColor={Theme.colors.mutedFg}
-                secureTextEntry={!showPw}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  focused === 'password' && styles.inputFocused,
-                ]}
-              />
+          <FormInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry={!showPw}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="oneTimeCode"
+            error={errors.password}
+            style={styles.passwordInput}
+            rightElement={
               <Pressable style={styles.eyeButton} onPress={() => setShowPw(!showPw)}>
                 <Ionicons name={showPw ? "eye-off" : "eye"} size={24} color={Theme.colors.mutedFg} />
               </Pressable>
-            </View>
-          </View>
+            }
+          />
 
           {/* Forgot Password */}
           <Pressable
-            onPress={() => Alert.alert('Forgot Password', 'Password recovery flow.')}
+            onPress={() => showAlert({ title: 'Forgot Password', message: 'Password recovery is not available in this version.', iconName: 'information-circle', variant: 'horizontal' })}
             style={styles.forgotPasswordPressable}
           >
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
@@ -176,7 +173,7 @@ export default function LoginScreen() {
           {/* Social Auth */}
           <View style={styles.socialContainer}>
             <Pressable
-              onPress={() => Alert.alert('Social Auth', 'Apple Login')}
+              onPress={() => showAlert({ title: 'Social Auth', message: 'Apple Login is coming soon.', iconName: 'information-circle', variant: 'horizontal' })}
               style={({ pressed }) => [
                 styles.socialButton,
                 pressed && styles.socialButtonPressed,
@@ -187,7 +184,7 @@ export default function LoginScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => Alert.alert('Social Auth', 'Google Login')}
+              onPress={() => showAlert({ title: 'Social Auth', message: 'Google Login is coming soon.', iconName: 'information-circle', variant: 'horizontal' })}
               style={({ pressed }) => [
                 styles.socialButton,
                 pressed && styles.socialButtonPressed,

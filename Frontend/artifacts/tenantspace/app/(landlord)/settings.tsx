@@ -6,11 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 
 export default function LandlordSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, signOut } = useAuth();
+  const { showAlert } = usePremiumAlert();
   
   const [pushNotifs, setPushNotifs] = useState(true);
   const [chatNotifs, setChatNotifs] = useState(true);
@@ -48,7 +50,7 @@ export default function LandlordSettingsScreen() {
       setEditField(null);
     } catch (err: any) {
       console.error(err);
-      Alert.alert('Error', err.message || 'Could not save changes.');
+      showAlert({ title: 'Error', message: err.message || 'Could not save changes.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setSaving(false);
     }
@@ -62,10 +64,16 @@ export default function LandlordSettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: signOut }
-    ]);
+    showAlert({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      iconName: 'log-out-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: signOut }
+      ]
+    });
   };
 
   const handleSwitchToTenant = async () => {
@@ -75,19 +83,30 @@ export default function LandlordSettingsScreen() {
       router.replace('/(tenant)/home');
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Could not switch role.');
+      showAlert({ title: 'Error', message: 'Could not switch role.', iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account', 
-      'This action is permanent and cannot be undone. All your data will be lost.', 
-      [
+    showAlert({
+      title: 'Delete Account', 
+      message: 'This action is permanent and cannot be undone. All your data will be lost.', 
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Notice', 'Account deletion requires contacting support in this version.') }
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            // Slight delay so the first alert can close smoothly
+            setTimeout(() => {
+              showAlert({ title: 'Notice', message: 'Account deletion requires contacting support in this version.', iconName: 'information-circle', variant: 'horizontal' });
+            }, 300);
+          }
+        }
       ]
-    );
+    });
   };
 
   return (
@@ -177,7 +196,7 @@ export default function LandlordSettingsScreen() {
           <View style={styles.divider} />
           
           <View style={styles.rowItem}>
-            <View style={[styles.iconBox, { backgroundColor: '#F8FAFC' }]}>
+            <View style={[styles.iconBox, { backgroundColor: '#E8ECEF' }]}>
               <Ionicons name="chatbubbles" size={16} color="#64748B" />
             </View>
             <View style={styles.rowTextCol}>
@@ -296,10 +315,10 @@ export default function LandlordSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#E8ECEF',
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#E8ECEF',
     paddingHorizontal: 16,
     paddingBottom: 16,
     flexDirection: 'row',
@@ -309,8 +328,10 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 22,

@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -16,6 +17,7 @@ export default function AddPreviousRoomScreen() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { showAlert } = usePremiumAlert();
   
   const [propertyName, setPropertyName] = useState('');
   const [address, setAddress] = useState('');
@@ -32,66 +34,13 @@ export default function AddPreviousRoomScreen() {
     if (selectedDate) setStartDate(selectedDate.toISOString().split('T')[0]);
   };
 
-  const onEndDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowEndPicker(false);
-    if (selectedDate) setEndDate(selectedDate.toISOString().split('T')[0]);
-  };
-
-  const handleSave = async () => {
-    if (!propertyName.trim() || !address.trim()) {
-      Alert.alert('Error', 'House Name and Address are required.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const rentValue = parseInt(rent) || null;
-      
-      let start_date = null;
-      let end_date = null;
-      
-      if (startDate) {
-        const d = new Date(startDate);
-        if (!isNaN(d.getTime())) start_date = d.toISOString().split('T')[0];
-      }
-      if (endDate) {
-        const d = new Date(endDate);
-        if (!isNaN(d.getTime())) end_date = d.toISOString().split('T')[0];
-      }
-      
-      const { data, error } = await supabase
-        .from('tenant_previous_rooms')
-        .insert({
-          tenant_id: profile?.id,
-          property_name: propertyName.trim(),
-          room_name: address.trim(),
-          monthly_rent: rentValue,
-          start_date,
-          end_date,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      queryClient.invalidateQueries({ queryKey: ['tenantPreviousRooms', profile?.id] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace(`/(tenant)/previous-room/${data.id}`);
-    } catch (err: any) {
-      console.error(err);
-      Alert.alert('Error', err.message || 'Failed to save previous room.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       {/* Top Navigation */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topBarContent}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+            <Ionicons name="chevron-back" size={24} color="#64748B" />
           </Pressable>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Add Previous Room</Text>
@@ -230,9 +179,7 @@ export default function AddPreviousRoomScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.bg },
   topBar: {
-    backgroundColor: Theme.colors.card,
-    borderBottomWidth: 1,
-    borderColor: Theme.colors.border,
+    backgroundColor: '#E8ECEF',
     zIndex: 10,
   },
   topBarContent: {
@@ -243,10 +190,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: Theme.radius.sm,
-    backgroundColor: Theme.colors.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

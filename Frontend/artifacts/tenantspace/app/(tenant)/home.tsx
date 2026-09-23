@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +24,8 @@ import { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { usePremiumAlert } from '../../contexts/AlertContext';
+import { FormInput } from '../../components/ui/FormInput';
 
 // Formatting helpers
 const formatDate = (dateString: string | null) => {
@@ -42,12 +45,14 @@ export default function TenantHomeScreen() {
   
   // Join Room Form State
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteCodeError, setInviteCodeError] = useState<string | undefined>(undefined);
   const [joining, setJoining] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showAlert } = usePremiumAlert();
 
   const fetchTenantData = async () => {
     if (!profile?.id) return;
@@ -99,6 +104,24 @@ export default function TenantHomeScreen() {
     refetchPrevious();
   };
 
+  // Block hardware back button — home screen is the root, going back would show auth screens
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      showAlert({
+        title: 'Exit App',
+        message: 'Are you sure you want to exit?',
+        iconName: 'exit-outline',
+        variant: 'centered',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
+        ]
+      });
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
   const { data: previousRooms = [], refetch: refetchPrevious } = useQuery({
     queryKey: ['tenantPreviousRooms', profile?.id],
     queryFn: async () => {
@@ -115,9 +138,10 @@ export default function TenantHomeScreen() {
 
   const handleJoinRoom = async () => {
     if (!inviteCode.trim()) {
-      Alert.alert('Error', 'Please enter a valid invite code.');
+      setInviteCodeError('Please enter a valid invite code.');
       return;
     }
+    setInviteCodeError(undefined);
 
     Keyboard.dismiss();
     setJoining(true);
@@ -130,7 +154,7 @@ export default function TenantHomeScreen() {
 
       if (roomError || !room) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Invalid Code', 'No room found matching this invite code.');
+        setInviteCodeError('No room found matching this invite code.');
         return;
       }
 
@@ -142,7 +166,7 @@ export default function TenantHomeScreen() {
         .eq('status', 'active');
 
       if (existing && existing.length > 0) {
-        Alert.alert('Already Joined', 'You are already a member of this room.');
+        showAlert({ title: 'Already Joined', message: 'You are already a member of this room.', variant: 'horizontal', iconName: 'information-circle' });
         return;
       }
 
@@ -161,7 +185,7 @@ export default function TenantHomeScreen() {
       fetchTenantData();
     } catch (err) {
       console.error('Error joining room:', err);
-      Alert.alert('Error', 'Failed to join room. Please try again.');
+      setInviteCodeError('Failed to join room. Please try again.');
     } finally {
       setJoining(false);
     }
@@ -178,11 +202,12 @@ export default function TenantHomeScreen() {
   const hasHomes = currentMemberships.length > 0 || pastMemberships.length > 0 || previousRooms.length > 0;
 
   return (
+    <LinearGradient colors={['#CAE7FC', '#FFFFFF']} style={{ flex: 1 }}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       {/* Top Navigation / Status Bar Area */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
-          <Text style={styles.headerWelcome}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
+          <Text style={styles.headerWelcome}>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</Text>
           <Text style={styles.headerName}>{hasHomes ? 'My Homes' : 'Welcome'}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -419,17 +444,16 @@ export default function TenantHomeScreen() {
             <View style={styles.joinModalContent}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
                 <Text style={styles.formLabel}>INVITE CODE</Text>
-                <Pressable onPress={() => setShowJoinModal(false)}>
+                <Pressable onPress={() => { setShowJoinModal(false); setInviteCodeError(undefined); setInviteCode(''); }}>
                   <Ionicons name="close" size={24} color={Theme.colors.mutedFg} />
                 </Pressable>
               </View>
-              <TextInput
-                style={styles.formInput}
+              <FormInput
                 value={inviteCode}
-                onChangeText={text => setInviteCode(text.toUpperCase())}
+                onChangeText={text => { setInviteCode(text.toUpperCase()); setInviteCodeError(undefined); }}
                 placeholder="e.g. MAPLE-2B-9X4P"
-                placeholderTextColor={Theme.colors.mutedFg}
                 autoCapitalize="characters"
+                error={inviteCodeError}
               />
               <Pressable 
                 style={[styles.formBtn, !inviteCode && { backgroundColor: Theme.colors.muted }]} 
@@ -447,16 +471,17 @@ export default function TenantHomeScreen() {
       </Modal>
 
     </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerWelcome: { fontSize: 12, color: '#64748B' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#CAE7FC' },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  header: { backgroundColor: 'transparent', paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerWelcome: { fontSize: 14, fontWeight: '600', color: '#64748B' },
   headerName: { fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5, marginTop: 2 },
-  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   iconButtonText: { fontSize: 20, color: '#64748B', fontWeight: '700' },
   scrollContent: { padding: 20 },
   

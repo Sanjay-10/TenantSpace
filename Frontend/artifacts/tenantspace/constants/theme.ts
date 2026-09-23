@@ -1,7 +1,9 @@
 export const Theme = {
   colors: {
     // Page & card surfaces
-    bg: '#F8FAFC',          // Slate 50
+    bg: '#EFF6FF',          // Blue 50 - light blue tint
+    bgGradientStart: '#DBEAFE', // Blue 100 - gradient top
+    bgGradientEnd: '#FFFFFF',   // White - gradient bottom
     card: '#FFFFFF',        // White
     border: '#E2E8F0',      // Slate 200
     

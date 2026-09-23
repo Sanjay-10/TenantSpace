@@ -39,7 +39,9 @@ export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlo
                 <Ionicons name="megaphone-outline" size={18} color={isExpired ? Theme.colors.mutedFg : '#DC2626'} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.landlordName, isExpired && { color: Theme.colors.mutedFg }]}>{landlordName}</Text>
+                <Text style={[styles.landlordName, isExpired && { color: Theme.colors.mutedFg }]}>
+                  {ann.profiles?.full_name || landlordName}
+                </Text>
                 <Text style={styles.dateText}>{dateDisplay}</Text>
               </View>
               <View style={[styles.badge, isExpired ? styles.badgeExpired : styles.badgeActive]}>
@@ -82,7 +84,7 @@ export function AnnouncementsSubTab({ announcements = [], landlordName = 'Landlo
 
 const styles = StyleSheet.create({
   annCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Theme.colors.border },
-  annCardExpired: { backgroundColor: '#F8FAFC' },
+  annCardExpired: { backgroundColor: '#E8ECEF' },
   
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   iconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginRight: 10 },

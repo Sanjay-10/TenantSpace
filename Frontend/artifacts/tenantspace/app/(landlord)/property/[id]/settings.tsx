@@ -9,6 +9,7 @@ import { supabase } from '../../../../lib/supabase';
 import { Theme } from '../../../../constants/theme';
 import { C } from '../../../../components/property/propertyStyles';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { usePremiumAlert } from '../../../../contexts/AlertContext';
 
 // Generic Setting Item Component
 const SettingItem = ({ 
@@ -49,6 +50,7 @@ export default function PropertySettingsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { showAlert } = usePremiumAlert();
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editField, setEditField] = useState<'name' | 'address' | 'property_type' | 'rent_due_date' | 'rent_reminders' | null>(null);
@@ -89,7 +91,7 @@ export default function PropertySettingsScreen() {
       setEditModalVisible(false);
     },
     onError: (err: any) => {
-      Alert.alert('Error updating property', err.message);
+      showAlert({ title: 'Error updating property', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   });
 
@@ -110,7 +112,7 @@ export default function PropertySettingsScreen() {
       setNewContactContent('');
     },
     onError: (err: any) => {
-      Alert.alert('Error adding contact', err.message);
+      showAlert({ title: 'Error adding contact', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   });
 
@@ -137,7 +139,7 @@ export default function PropertySettingsScreen() {
     if (editField === 'rent_due_date') {
       const parsed = parseInt(finalValue, 10);
       if (isNaN(parsed) || parsed < 1 || parsed > 31) {
-        Alert.alert('Invalid Date', 'Please enter a day between 1 and 31.');
+        showAlert({ title: 'Invalid Date', message: 'Please enter a day between 1 and 31.', iconName: 'alert-circle', variant: 'horizontal' });
         return;
       }
       finalValue = parsed;
@@ -154,15 +156,17 @@ export default function PropertySettingsScreen() {
   const handleCopyCode = async () => {
     if (property?.property_code) {
       await Clipboard.setStringAsync(property.property_code);
-      Alert.alert('Copied!', 'Property code copied to clipboard.');
+      showAlert({ title: 'Copied!', message: 'Property code copied to clipboard.', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
     }
   };
 
   const handleArchive = () => {
-    Alert.alert(
-      'Archive Property',
-      'Are you sure you want to archive this property? It will be hidden from your dashboard.',
-      [
+    showAlert({
+      title: 'Archive Property',
+      message: 'Are you sure you want to archive this property? It will be hidden from your dashboard.',
+      iconName: 'archive-outline',
+      variant: 'centered',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Archive', 
@@ -170,19 +174,19 @@ export default function PropertySettingsScreen() {
           onPress: () => {
             updateMutation.mutate({ is_archived: true }, {
               onSuccess: () => {
-                Alert.alert('Archived', 'Property has been archived.');
+                showAlert({ title: 'Archived', message: 'Property has been archived.', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
                 router.replace('/(landlord)/(tabs)');
               }
             });
           }
         }
       ]
-    );
+    });
   };
 
   const handleAddContact = () => {
     if (!newContactTitle.trim() || !newContactContent.trim()) {
-      Alert.alert('Missing Info', 'Please provide both a title and contact details.');
+      showAlert({ title: 'Missing Info', message: 'Please provide both a title and contact details.', iconName: 'alert-circle', variant: 'horizontal' });
       return;
     }
     addContactMutation.mutate({
@@ -203,7 +207,7 @@ export default function PropertySettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerBackButton}>
-          <Ionicons name="arrow-back" size={20} color={C.text} />
+          <Ionicons name="chevron-back" size={20} color={C.text} />
         </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Property Settings</Text>
@@ -274,10 +278,10 @@ export default function PropertySettingsScreen() {
           </View>
         </View>
 
-        {/* Contacts & Services */}
-        <SectionHeader title="Contacts & Services" />
+        {/* Key Info */}
+        <SectionHeader title="Key Info" />
         <Text style={styles.sectionDescription}>
-          These contacts will be visible to tenants by default in all room details.
+          This info will be visible to all tenants in this property.
         </Text>
         <View style={styles.card}>
           {property.property_contacts?.map((contact: any, index: number) => (
@@ -292,8 +296,8 @@ export default function PropertySettingsScreen() {
           ))}
           <SettingItem 
             icon={<Ionicons name="add" size={18} color={C.primary} />}
-            title="Add Contact"
-            subtitle="Add new service contact"
+            title="Add Info"
+            subtitle="Add contacts, payment info, or anything useful"
             onPress={() => setAddContactVisible(true)}
           />
         </View>
@@ -404,7 +408,7 @@ export default function PropertySettingsScreen() {
       <Modal visible={addContactVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Contact</Text>
+            <Text style={styles.modalTitle}>Add Key Info</Text>
             
             <TextInput
               style={styles.modalInput}
@@ -412,7 +416,7 @@ export default function PropertySettingsScreen() {
               onChangeText={setNewContactTitle}
               autoFocus
               selectionColor={C.primary}
-              placeholder="Title (e.g. Plumber)"
+              placeholder="E-Transfer, WiFi Password, Contact..."
               placeholderTextColor={C.mutedFg}
             />
             
@@ -421,7 +425,7 @@ export default function PropertySettingsScreen() {
               value={newContactContent}
               onChangeText={setNewContactContent}
               selectionColor={C.primary}
-              placeholder="Details (e.g. Mike's · 07700 900123)"
+              placeholder="landlord@email.com, 1234..."
               placeholderTextColor={C.mutedFg}
             />
 
@@ -466,15 +470,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.card,
+    backgroundColor: '#E8ECEF',
   },
   headerBackButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: C.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -629,7 +631,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: Theme.fonts.bold,
     color: C.fg,
     marginBottom: 16,
@@ -640,7 +642,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 8,
     padding: 12,
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: Theme.fonts.medium,
     color: C.fg,
     marginBottom: 24,
@@ -657,7 +659,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.iconBg,
   },
   modalBtnCancelText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: Theme.fonts.semiBold,
     color: C.mutedFg,
   },
@@ -671,7 +673,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   modalBtnSaveText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: Theme.fonts.bold,
     color: '#fff',
   },

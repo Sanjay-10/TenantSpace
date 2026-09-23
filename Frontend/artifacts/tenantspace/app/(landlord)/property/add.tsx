@@ -21,6 +21,8 @@ import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
+import { FormInput } from '../../../components/ui/FormInput';
 
 type Step = 'details' | 'rooms' | 'done';
 type PropertyType = 'Shared House' | 'Flat' | 'Studio' | 'Other';
@@ -48,17 +50,24 @@ export default function AddPropertyScreen() {
   const [createdRooms, setCreatedRooms] = useState<GeneratedRoom[]>([]);
   const [createdPropertyId, setCreatedPropertyId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{name?: string, address?: string, rent?: string}>({});
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { showAlert } = usePremiumAlert();
 
   const handleNextStep = () => {
-    if (!name.trim() || !address.trim()) {
-      Alert.alert('Error', 'Please fill in all fields.');
+    const newErrors: any = {};
+    if (!name.trim()) newErrors.name = 'Property Name is required';
+    if (!address.trim()) newErrors.address = 'Address is required';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
     setStep('rooms');
   };
 
@@ -71,12 +80,13 @@ export default function AddPropertyScreen() {
   const handleCreateProperty = async () => {
     const rentVal = parseInt(defaultRent);
     if (isNaN(rentVal) || rentVal <= 0) {
-      Alert.alert('Error', 'Please enter a valid monthly rent amount.');
+      setErrors({ rent: 'Please enter a valid monthly rent amount.' });
       return;
     }
+    setErrors({});
 
     if (!profile?.id) {
-      Alert.alert('Session Error', 'You must be logged in to create a property.');
+      showAlert({ title: 'Session Error', message: 'You must be logged in to create a property.', iconName: 'alert-circle', variant: 'horizontal' });
       return;
     }
 
@@ -132,7 +142,7 @@ export default function AddPropertyScreen() {
       setStep('done');
     } catch (err) {
       console.error('Error creating property:', err);
-      Alert.alert('Error', 'Failed to create property. Please try again.');
+      showAlert({ title: 'Error', message: 'Failed to create property. Please try again.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setLoading(false);
     }
@@ -141,14 +151,14 @@ export default function AddPropertyScreen() {
   const copyToClipboard = async (code: string) => {
     await Clipboard.setStringAsync(code);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert('Copied!', `Room code ${code} copied to clipboard.`);
+    showAlert({ title: 'Copied!', message: `Room code ${code} copied to clipboard.`, iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
   };
 
   const shareAllCodes = async () => {
     const text = createdRooms.map((r) => `${r.name}: ${r.code}`).join('\n');
     await Clipboard.setStringAsync(text);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Copied All!', 'All room invite codes copied to clipboard.');
+    showAlert({ title: 'Copied All!', message: 'All room invite codes copied to clipboard.', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
   };
 
   return (
@@ -164,7 +174,7 @@ export default function AddPropertyScreen() {
               onPress={() => (step === 'rooms' ? setStep('details') : router.back())}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+              <Ionicons name="chevron-back" size={24} color="#64748B" />
             </Pressable>
           ) : (
             <View style={{ width: 34 }} />
@@ -261,27 +271,21 @@ export default function AddPropertyScreen() {
                 })}
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Property Name</Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. Maple Grove"
-                  placeholderTextColor={Theme.colors.mutedFg}
-                  style={styles.input}
-                />
-              </View>
+              <FormInput
+                label="Property Name"
+                value={name}
+                onChangeText={(txt) => { setName(txt); setErrors(prev => ({...prev, name: undefined})); }}
+                placeholder="e.g. Maple Grove"
+                error={errors.name}
+              />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Address</Text>
-                <TextInput
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="e.g. 12 Maple St, London E1 4RD"
-                  placeholderTextColor={Theme.colors.mutedFg}
-                  style={styles.input}
-                />
-              </View>
+              <FormInput
+                label="Address"
+                value={address}
+                onChangeText={(txt) => { setAddress(txt); setErrors(prev => ({...prev, address: undefined})); }}
+                placeholder="e.g. 12 Maple St, London E1 4RD"
+                error={errors.address}
+              />
 
               <Pressable
                 onPress={handleNextStep}
@@ -350,21 +354,19 @@ export default function AddPropertyScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Default Monthly Rent per Room</Text>
-                <View style={styles.currencyInputWrapper}>
-                  <Text style={styles.currencySymbol}>$</Text>
-                  <TextInput
-                    value={defaultRent}
-                    onChangeText={(val) => {
-                      setDefaultRent(val);
-                      setRoomRents(prev => prev.map(() => val));
-                    }}
-                    keyboardType="number-pad"
-                    style={[styles.input, styles.currencyInput]}
-                  />
-                </View>
-              </View>
+              <FormInput
+                label="Default Monthly Rent per Room"
+                value={defaultRent}
+                onChangeText={(val) => {
+                  setDefaultRent(val);
+                  setRoomRents(prev => prev.map(() => val));
+                  setErrors(prev => ({...prev, rent: undefined}));
+                }}
+                keyboardType="number-pad"
+                error={errors.rent}
+                leftElement={<Text style={styles.currencySymbol}>$</Text>}
+                style={styles.currencyInput}
+              />
 
               <Text style={styles.previewTitle}>Rooms Preview</Text>
               <View style={styles.previewList}>
@@ -489,9 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.bg,
   },
   topBar: {
-    backgroundColor: Theme.colors.card,
-    borderBottomWidth: 1,
-    borderColor: Theme.colors.border,
+    backgroundColor: '#E8ECEF',
     zIndex: 10,
   },
   topBarContent: {
@@ -502,10 +502,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: Theme.radius.sm,
-    backgroundColor: Theme.colors.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getTenantColor, getTenantTextColor } from '../../ui/AvatarCluster';
 import { supabase } from '../../../lib/supabase';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
 
 const formatTimeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -26,19 +27,26 @@ export function RequestsSubTab({ requests = [], propertyId, roomId, tenantMap = 
   const router = useRouter();
   const { profile } = useAuth();
   const [selectedReq, setSelectedReq] = useState<any>(null);
+  const { showAlert } = usePremiumAlert();
 
   const handleDelete = (reqId: string) => {
-    Alert.alert('Delete Request', 'Are you sure you want to delete this?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Delete', 
-        style: 'destructive', 
-        onPress: async () => {
-          setSelectedReq(null);
-          await supabase.from('maintenance_requests').delete().eq('id', reqId);
+    showAlert({
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this?',
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            setSelectedReq(null);
+            await supabase.from('maintenance_requests').delete().eq('id', reqId);
+          }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const activeReqs = requests.filter((r: any) => r.status !== 'resolved');

@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { Theme } from '../../constants/theme';
 
 export const C = {
-  bg: "#F8FAFC", card: "#FFFFFF", fg: "#0F172A", muted: "#F1F5F9",
+  bg: "#E8ECEF", card: "#FFFFFF", fg: "#0F172A", muted: "#F1F5F9",
   mutedFg: "#64748B", border: "#E2E8F0", primary: "#2563EB",
   accent: "#EFF6FF", success: "#10B981", warning: "#F59E0B",
   danger: "#EF4444", g1: "#1D4ED8", g3: "#3B82F6",
@@ -35,12 +35,10 @@ export const styles = StyleSheet.create({
   
   // Header
   header: {
-    backgroundColor: C.card,
+    backgroundColor: '#E8ECEF',
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderColor: C.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -52,10 +50,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   headerIconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: C.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

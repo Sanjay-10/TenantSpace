@@ -22,10 +22,12 @@ import { Theme } from '../../constants/theme';
 import { markChatAsRead } from '../../lib/readReceipts';
 import * as MediaLibrary from 'expo-media-library';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ImageView from 'react-native-image-viewing';
@@ -100,6 +102,7 @@ interface ChatRoomProps {
 
 export function ChatRoom({ propertyId, roomId, currentUserId, participants, title, subtitle, onBack }: ChatRoomProps) {
   const insets = useSafeAreaInsets();
+  const { showAlert } = usePremiumAlert();
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputText, setInputText] = useState('');
@@ -108,11 +111,17 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
   const [refreshing, setRefreshing] = useState(false);
   const [previewImageVisible, setPreviewImageVisible] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuConfig, setMenuConfig] = useState<{ id: string, x: number, y: number, isMe: boolean, text?: string, media_url?: string, item: any } | null>(null);
   const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const queryClient = useQueryClient();
   const [authToken, setAuthToken] = useState('');
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  const loadMoreMessages = () => {
+    // Pagination not yet implemented
+  };
 
   // Get Auth Token for media downloads
   useEffect(() => {
@@ -313,7 +322,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
           setPreviewImageUrl(data.signedUrl);
           setPreviewImageVisible(true);
         } else {
-          Alert.alert('Error', 'Could not load high-res image.');
+          showAlert({ title: 'Error', message: 'Could not load high-res image.', iconName: 'image-outline', variant: 'horizontal' });
         }
       } catch (e) {
         console.error(e);
@@ -349,33 +358,74 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(localUri, { mimeType, UTI: uti });
         } else {
-          Alert.alert('Unavailable', 'Sharing is not available on this device');
+          showAlert({ title: 'Unavailable', message: 'Sharing is not available on this device.', iconName: 'share-outline', variant: 'horizontal' });
         }
       } else if (action === 'download') {
         if (isMedia) {
-          const localUri = await downloadAndSyncMedia(rawName, item.media_url, true);
-          if (localUri) Alert.alert('Saved', 'Media saved to your Gallery!');
-        } else {
-          // For documents, best cross-platform way to download is via browser
-          const { data } = await supabase.storage.from('chat-media').createSignedUrl(item.media_url, 60 * 60);
-          if (data?.signedUrl) {
-            Linking.openURL(data.signedUrl);
+          if (Platform.OS === 'android') {
+            // Show native folder picker so user can choose where to save
+            const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+            if (permissions.granted) {
+              // Download to temp first
+              const localUri = await downloadAndSyncMedia(rawName, item.media_url, false);
+              if (localUri) {
+                // Read the file and write to chosen location
+                const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+                const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+                  permissions.directoryUri,
+                  rawName,
+                  mimeType
+                );
+                await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+                showAlert({ title: 'Saved!', message: 'Saved to your chosen folder.', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
+              }
+            }
           } else {
-            Alert.alert('Error', 'Could not generate download link.');
+            // iOS — save to camera roll
+            const localUri = await downloadAndSyncMedia(rawName, item.media_url, true);
+            if (localUri) showAlert({ title: 'Saved!', message: 'Media saved to your Photos!', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
+          }
+        } else {
+          // Download document: download locally then open with native app
+          const localUri = await downloadAndSyncMedia(rawName, item.media_url, false);
+          if (localUri) {
+            if (Platform.OS === 'android') {
+              const contentUri = await FileSystem.getContentUriAsync(localUri);
+              await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                data: contentUri,
+                flags: 1,
+                type: mimeType,
+              });
+            } else {
+              await Sharing.shareAsync(localUri, { mimeType, UTI: uti });
+            }
+          } else {
+            showAlert({ title: 'Error', message: 'Could not download document.', iconName: 'alert-circle', variant: 'horizontal' });
           }
         }
       } else {
-        // action === 'open'
-        const { data } = await supabase.storage.from('chat-media').createSignedUrl(item.media_url, 60 * 60);
-        if (data?.signedUrl) {
-          Linking.openURL(data.signedUrl);
+        // action === 'open' — keep in-app using native intent, never open Chrome
+        const localUri = await downloadAndSyncMedia(rawName, item.media_url, isMedia);
+        if (localUri) {
+          if (Platform.OS === 'android') {
+            // Android 7+ requires content:// URI, not file:// URI
+            const contentUri = await FileSystem.getContentUriAsync(localUri);
+            await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+              data: contentUri,
+              flags: 1,
+              type: mimeType,
+            });
+          } else {
+            // iOS — use share sheet which routes to correct app
+            await Sharing.shareAsync(localUri, { mimeType, UTI: uti });
+          }
         } else {
-          Alert.alert('Error', 'Could not open media.');
+          showAlert({ title: 'Error', message: 'Could not open media.', iconName: 'alert-circle', variant: 'horizontal' });
         }
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not process media.');
+      showAlert({ title: 'Error', message: 'Could not process media.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setLoadingMediaId(null);
     }
@@ -470,22 +520,17 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
     const isMe = item.sender_id === currentUserId;
     const participant = participants[item.sender_id] || { name: 'Unknown', initials: '?' };
     
-    const bgColor = !isMe ? '#DBEAFE' : undefined;
     const nameColor = !isMe ? getTenantTextColor(item.sender_id) : undefined;
     const avatarBgColor = !isMe ? getTenantColor(item.sender_id) : undefined;
     const avatarTextColor = !isMe ? getTenantTextColor(item.sender_id) : undefined;
     
-    // Check if we should show avatar/name (if previous message is from someone else, or a long time ago)
+    // Check if we should show avatar/name (if previous message is from someone else, or it's a new day)
     const prevMessage = messages[index + 1]; // +1 because array is reversed (newest first)
-    const showAvatar = !isMe && (!prevMessage || prevMessage.sender_id !== item.sender_id);
-    
     const isNewDay = !prevMessage || !isSameDay(item.created_at, prevMessage.created_at);
+    const showAvatar = !isMe && (!prevMessage || prevMessage.sender_id !== item.sender_id || isNewDay);
     
     return (
-      <View style={{
-        zIndex: openMenuId === item.id ? 9999 : 1,
-        elevation: openMenuId === item.id ? 9999 : 1
-      }}>
+      <View>
         {isNewDay && (
           <View style={styles.dateHeaderContainer}>
             <View style={styles.dateHeaderBadge}>
@@ -501,7 +546,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         {!isMe && (
           <View style={styles.avatarSpace}>
             {showAvatar && (
-              <View style={[styles.avatar, { backgroundColor: avatarBgColor || '#E2E8F0' }]}>
+              <View style={[styles.avatar, { backgroundColor: avatarBgColor || '#E2E8F0', borderColor: avatarTextColor || '#CBD5E1' }]}>
                 <Text style={[styles.avatarText, { color: avatarTextColor }]}>{participant.initials}</Text>
               </View>
             )}
@@ -509,16 +554,23 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         )}
         
           <View style={[styles.bubbleContainer, isMe ? styles.bubbleContainerMe : styles.bubbleContainerThem]}>
-            <View style={{ flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'center', flex: 1 }}>
               
               {/* Main Chat Bubble */}
-              <View style={[
-                styles.bubble, 
-                isMe ? styles.bubbleMe : styles.bubbleThem,
-                !isMe && { backgroundColor: bgColor, borderColor: bgColor },
-                item.media_url && { paddingHorizontal: 3, paddingTop: 3 },
-                !item.text && (item.media_type === 'image' || item.media_type === 'video') && { paddingBottom: 3 }
-              ]}>
+              <Pressable 
+                style={[
+                  styles.bubble, 
+                  isMe ? styles.bubbleMe : styles.bubbleThem,
+                  item.media_url && { paddingHorizontal: 3, paddingTop: 3 },
+                  !item.text && (item.media_type === 'image' || item.media_type === 'video') && { paddingBottom: 3 }
+                ]}
+                onLongPress={(e) => {
+                  if (!item.isOptimistic) {
+                    setMenuConfig({ id: item.id, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, isMe, text: item.text, media_url: item.media_url, item });
+                  }
+                }}
+                delayLongPress={300}
+              >
                 {!isMe && showAvatar && (
                   <Text style={{
                     fontSize: 13,
@@ -534,7 +586,11 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                 {item.media_url && item.media_type === 'image' && (
                   <Pressable 
                     onPress={() => handleMediaPress(item.media_url, 'image', item)}
-                    onLongPress={() => setOpenMenuId(item.id)}
+                    onLongPress={(e) => {
+                  if (!item.isOptimistic) {
+                    setMenuConfig({ id: item.id, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, isMe, text: item.text, media_url: item.media_url, item });
+                  }
+                }}
                     delayLongPress={300}
                   >
                     <View style={[
@@ -575,7 +631,11 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                 {item.media_url && item.media_type === 'video' && (
                   <Pressable 
                     onPress={() => handleMediaPress(item.media_url, 'video', item)}
-                    onLongPress={() => setOpenMenuId(item.id)}
+                    onLongPress={(e) => {
+                  if (!item.isOptimistic) {
+                    setMenuConfig({ id: item.id, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, isMe, text: item.text, media_url: item.media_url, item });
+                  }
+                }}
                     delayLongPress={300}
                   >
                     <View style={[
@@ -632,7 +692,11 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                       !item.text && (isMe ? { borderBottomRightRadius: 2 } : { borderBottomLeftRadius: 2 })
                     ]} 
                     onPress={() => handleMediaAction(item, 'open')}
-                    onLongPress={() => setOpenMenuId(item.id)}
+                    onLongPress={(e) => {
+                  if (!item.isOptimistic) {
+                    setMenuConfig({ id: item.id, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, isMe, text: item.text, media_url: item.media_url, item });
+                  }
+                }}
                     delayLongPress={300}
                   >
                       {(item.isOptimistic || loadingMediaId === item.id) ? (
@@ -659,7 +723,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                     (item.media_type === 'image' || item.media_type === 'video') && { paddingHorizontal: 6, paddingTop: 2 }
                   ]}>
                     {item.text}
-                    <Text style={{ fontSize: 11, color: isMe ? '#3B82F6' : bgColor }}>{'        00:00 PM'}</Text>
+                    <Text style={{ fontSize: 11, color: isMe ? '#3B82F6' : '#fff' }}>{'        00:00 PM'}</Text>
                   </Text>
                 ) : item.media_type === 'document' ? (
                    <View style={{ height: 14 }} />
@@ -679,48 +743,7 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
                     </View>
                   );
                 })()}
-              </View>
-
-              {/* Floating Action Menu (Triggered by Long Press) */}
-              {!item.isOptimistic && item.media_url && (
-                <View style={{ position: 'relative', marginLeft: isMe ? 0 : 8, marginRight: isMe ? 8 : 0 }}>
-                  {openMenuId === item.id && (
-                    <View style={{ 
-                      position: 'absolute', 
-                      top: -15, 
-                      right: isMe ? 'auto' : 0, // open inward 
-                      left: isMe ? 0 : 'auto',  // open inward
-                      backgroundColor: '#262626', 
-                      borderRadius: 14, 
-                      paddingVertical: 4,
-                      minWidth: 160,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 4,
-                      elevation: 10,
-                      zIndex: 9999
-                    }}>
-                      <Pressable 
-                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 }} 
-                        onPress={() => { setOpenMenuId(null); handleMediaAction(item, 'share'); }}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>Share</Text>
-                        <Ionicons name="share-outline" size={22} color="#fff" />
-                      </Pressable>
-                      <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                      <Pressable 
-                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 }} 
-                        onPress={() => { setOpenMenuId(null); handleMediaAction(item, 'download'); }} 
-                      >
-                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>Download</Text>
-                        <Ionicons name="download-outline" size={22} color="#fff" />
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              )}
-
+              </Pressable>
             </View>
           </View>
       </View>
@@ -729,28 +752,31 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      enabled={Platform.OS === 'ios'}
-      style={styles.container}
-    >
-      {/* Invisible overlay to dismiss popup menu */}
-      {openMenuId && (
-        <Pressable 
-          style={[StyleSheet.absoluteFill, { zIndex: 9998, elevation: 9998 }]} 
-          onPress={() => setOpenMenuId(null)} 
-        />
-      )}
+    <>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        keyboardVerticalOffset={0}
+        style={styles.container}
+      >
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={onBack} style={styles.backBtn}>
-            <Ionicons name="chevron-back-outline" size={24} color={Theme.colors.mutedFg} />
+            <Ionicons name="chevron-back" size={24} color={Theme.colors.mutedFg} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
           </View>
+          <Pressable 
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4 }}
+            onPress={() => setShowMembersModal(true)}
+          >
+            <Ionicons name="people" size={16} color="#64748B" />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
+              {Object.keys(participants).length} {Object.keys(participants).length === 1 ? 'member' : 'members'}
+            </Text>
+          </Pressable>
         </View>
       </View>
 
@@ -767,6 +793,15 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
             inverted={true} // Newest at bottom
             contentContainerStyle={styles.flatListContent}
             showsVerticalScrollIndicator={false}
+            onEndReached={loadMoreMessages}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => 
+              isLoadingMore ? (
+                <View style={{ paddingVertical: 20 }}>
+                  <ActivityIndicator size="small" color="#94A3B8" />
+                </View>
+              ) : null
+            }
           />
         )}
       </View>
@@ -840,6 +875,42 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
       </Modal>
 
       {/* Zoomable Full-Screen Image Viewer */}
+      {/* Members Modal */}
+      <Modal
+        visible={showMembersModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMembersModal(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+          onPress={() => setShowMembersModal(false)}
+        >
+          <Pressable 
+            style={{ width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 20, maxHeight: '80%' }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '700', color: Theme.colors.fg, marginBottom: 16 }}>
+              Chat Members
+            </Text>
+            <FlatList 
+              data={Object.values(participants)}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Theme.colors.border }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: getTenantColor(item.id), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Text style={{ color: getTenantTextColor(item.id), fontSize: 15, fontWeight: '700' }}>{item.initials}</Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: Theme.colors.fg }}>
+                    {item.name} {item.id === currentUserId ? '(You)' : ''}
+                  </Text>
+                </View>
+              )}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <ImageView
         images={[{ uri: previewImageUrl }]}
         imageIndex={0}
@@ -848,48 +919,118 @@ export function ChatRoom({ propertyId, roomId, currentUserId, participants, titl
         animationType="fade"
       />
 
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {/* Global Context Menu Modal */}
+      {menuConfig && (
+        <Modal transparent={true} visible={true} animationType="fade" onRequestClose={() => setMenuConfig(null)}>
+          <TouchableWithoutFeedback onPress={() => setMenuConfig(null)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.1)' }}>
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View style={{ 
+                  position: 'absolute',
+                  top: Math.max(50, Math.min(menuConfig.y - 50, 700)), // keep on screen
+                  ...(menuConfig.isMe ? { right: 40 } : { left: 40 }),
+                  backgroundColor: '#262626', 
+                  borderRadius: 14, 
+                  minWidth: 145,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 5
+                }}>
+                  {menuConfig.text && !menuConfig.media_url && (
+                    <>
+                      <Pressable 
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 }} 
+                        onPress={async () => { 
+                          const txt = menuConfig.text;
+                          setMenuConfig(null); 
+                          if (txt) await Clipboard.setStringAsync(txt); 
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Copy</Text>
+                        <Ionicons name="copy-outline" size={22} color="#fff" />
+                      </Pressable>
+                      {menuConfig.media_url && <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />}
+                    </>
+                  )}
+                  {menuConfig.media_url && (
+                    <>
+                      <Pressable 
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 }} 
+                        onPress={() => { 
+                          const itm = menuConfig.item;
+                          setMenuConfig(null); 
+                          handleMediaAction(itm, 'share'); 
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Share</Text>
+                        <Ionicons name="share-outline" size={22} color="#fff" />
+                      </Pressable>
+                      <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                      <Pressable 
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 }} 
+                        onPress={() => { 
+                          const itm = menuConfig.item;
+                          setMenuConfig(null); 
+                          handleMediaAction(itm, 'download'); 
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Download</Text>
+                        <Ionicons name="download-outline" size={22} color="#fff" />
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: Theme.colors.bg },
   
   header: { 
-    backgroundColor: '#fff', 
+    backgroundColor: Theme.colors.bg, 
     paddingHorizontal: 16, 
     paddingBottom: 14, 
-    borderBottomWidth: 1, 
-    borderBottomColor: Theme.colors.border,
-    zIndex: 10
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CBD5E1'
   },
-  backBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { fontSize: 16, color: Theme.colors.mutedFg },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Theme.colors.fg, letterSpacing: -0.3 },
   headerSub: { fontSize: 12, color: Theme.colors.mutedFg, marginTop: 1 },
   
   chatContainer: { flex: 1 },
-  flatListContent: { paddingHorizontal: 16, paddingVertical: 20, gap: 4 },
+  flatListContent: { paddingVertical: 20, gap: 4 },
   
-  dateHeaderContainer: { alignItems: 'center', marginVertical: 16 },
-  dateHeaderBadge: { backgroundColor: '#E2E8F0', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12 },
-  dateHeaderText: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' },
+  dateHeaderContainer: { alignItems: 'center', marginVertical: 16, paddingHorizontal: 16 },
+  dateHeaderBadge: { backgroundColor: '#F1F5F9', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  dateHeaderText: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'capitalize', textAlign: 'center' },
 
-  messageRow: { flexDirection: 'row', width: '100%', marginVertical: 2 },
-  messageRowMe: { justifyContent: 'flex-end' },
-  messageRowThem: { justifyContent: 'flex-start' },
+  messageRow: { flexDirection: 'row', width: '100%', marginVertical: 2, paddingHorizontal: 16 },
+  messageRowMe: { },
+  messageRowThem: { },
   
   avatarSpace: { width: 32, marginRight: 8, justifyContent: 'flex-start', paddingTop: 4 },
-  avatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#CBD5E1' },
   avatarText: { fontSize: 10, fontWeight: '700', color: '#fff' },
   
-  bubbleContainer: { maxWidth: '75%' },
-  bubbleContainerMe: { alignItems: 'flex-end' },
-  bubbleContainerThem: { alignItems: 'flex-start' },
+  bubbleContainer: { flex: 1 },
+  bubbleContainerMe: { },
+  bubbleContainerThem: { },
   
   senderName: { fontSize: 11, color: '#64748B', marginLeft: 4, marginBottom: 4 },
   
-  bubble: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, borderRadius: 16, minWidth: 75, position: 'relative' },
+  bubble: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, borderRadius: 16, minWidth: 75, maxWidth: '75%', position: 'relative' },
   bubbleMe: { backgroundColor: '#3B82F6', borderBottomRightRadius: 4 },
   bubbleThem: { backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E2E8F0' },
   
@@ -913,7 +1054,7 @@ const styles = StyleSheet.create({
   messageTimeAbsoluteThem: { color: '#94A3B8' },
   
   inputContainer: { 
-    backgroundColor: '#fff', 
+    backgroundColor: Theme.colors.bg, 
     paddingHorizontal: 12, 
     paddingTop: 12,
     borderTopWidth: 1,
@@ -926,8 +1067,9 @@ const styles = StyleSheet.create({
   },
   textInputWrapper: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#fff',
     borderRadius: 24,
+    minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderWidth: 1,
@@ -943,13 +1085,12 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2
   },
   sendBtnDisabled: {
     backgroundColor: '#CBD5E1'
@@ -961,15 +1102,14 @@ const styles = StyleSheet.create({
     marginTop: -2
   },
   plusBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 2
   },
   plusBtnText: {
     color: '#64748B',

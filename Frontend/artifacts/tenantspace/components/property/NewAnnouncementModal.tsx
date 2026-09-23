@@ -106,7 +106,7 @@ export default function NewAnnouncementModal({
               borderRadius: 10, 
               borderWidth: 1, 
               borderColor: '#E2E8F0',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: '#E8ECEF',
               justifyContent: 'center', 
               alignItems: 'center',
               marginRight: 16

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { C, styles } from './propertyStyles';
 import { Ionicons } from '@expo/vector-icons';
 import ImageView from 'react-native-image-viewing';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 
 interface Props {
   announcements: any[];
@@ -28,23 +29,30 @@ export function PropertyAnnouncementsSubTab({
 }: Props) {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{uri: string}[]>([]);
+  const { showAlert } = usePremiumAlert();
 
   const handleDeleteAnnouncement = async (id: string) => {
-    Alert.alert('Delete Announcement', 'Are you sure you want to delete this announcement?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Delete', 
-        style: 'destructive',
-        onPress: async () => {
-          setAnnouncements(prev => prev.filter(a => a.id !== id));
-          try {
-            await supabase.from('announcements').delete().eq('id', id);
-          } catch (err) {
-            console.error('Delete error', err);
+    showAlert({
+      title: 'Delete Announcement',
+      message: 'Are you sure you want to delete this announcement?',
+      iconName: 'trash-outline',
+      variant: 'centered',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            setAnnouncements(prev => prev.filter(a => a.id !== id));
+            try {
+              await supabase.from('announcements').delete().eq('id', id);
+            } catch (err) {
+              console.error('Delete error', err);
+            }
           }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const handleEditAnnouncement = (ann: any) => {
@@ -97,11 +105,16 @@ export function PropertyAnnouncementsSubTab({
         return (
           <View key={ann.id} style={styles.annCard}>
             <View style={styles.annHeaderRow}>
-              <View style={styles.annHeaderLeft}>
+              <View style={[styles.annHeaderLeft, { flex: 1 }]}>
                 <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isExpired ? C.muted : '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="megaphone-outline" size={18} color={isExpired ? C.mutedFg : '#DC2626'} />
                 </View>
-                <Text style={styles.annDate}>{dateStr}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isExpired ? C.mutedFg : C.primary }}>
+                    {ann.profiles?.full_name || 'Landlord'}
+                  </Text>
+                  <Text style={[styles.annDate, { marginTop: 2 }]}>{dateStr}</Text>
+                </View>
               </View>
               <View style={[styles.annBadge, { backgroundColor: isExpired ? C.muted : "#D1FAE5" }]}>
                 <Text style={[styles.annBadgeText, { color: isExpired ? C.mutedFg : "#065F46" }]}>
@@ -144,7 +157,7 @@ export function PropertyAnnouncementsSubTab({
                 <Pressable onPress={async () => {
                   const { error } = await supabase.from('announcements').delete().eq('id', ann.id);
                   if (error) {
-                    Alert.alert('Error deleting', error.message);
+                    showAlert({ title: 'Error deleting', message: error.message, iconName: 'alert-circle', variant: 'horizontal' });
                   } else {
                     // Update local state without fetching
                     setAnnouncements(prev => prev.filter(a => a.id !== ann.id));

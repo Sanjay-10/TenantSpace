@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,13 +19,15 @@ import { supabase } from '../../lib/supabase';
 import { getInitials } from '../../components/ui/AvatarCluster';
 import { Theme } from '../../constants/theme';
 import { useQuery } from '@tanstack/react-query';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 
 const C = {
-  bg: "#F8FAFC", card: "#FFFFFF", fg: "#0F172A", muted: "#F1F5F9",
+  bg: "#EFF6FF", card: "#FFFFFF", fg: "#0F172A", muted: "#F1F5F9",
   mutedFg: "#64748B", border: "#E2E8F0", primary: "#2563EB",
   primaryLight: "#EFF6FF", success: "#10B981", successLight: "#ECFDF5",
   warning: "#F59E0B", warningLight: "#FFFBEB", danger: "#EF4444",
   g1: "#1D4ED8", g3: "#3B82F6",
+  gradStart: "#CAE7FC", gradEnd: "#FFFFFF",
 };
 
 interface Property {
@@ -43,6 +47,7 @@ export default function LandlordHomeScreen() {
   const { profile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showAlert } = usePremiumAlert();
   
   const [manualRefreshing, setManualRefreshing] = useState(false);
 
@@ -103,6 +108,24 @@ export default function LandlordHomeScreen() {
     setManualRefreshing(false);
   };
 
+  // Block hardware back button — home screen is the root, going back would show auth screens
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      showAlert({
+        title: 'Exit App',
+        message: 'Are you sure you want to exit?',
+        iconName: 'exit-outline',
+        variant: 'centered',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
+        ]
+      });
+      return true; // blocks default back behavior
+    });
+    return () => sub.remove();
+  }, []);
+
   const initials = profile?.full_name
     ? getInitials(profile.full_name)
     : 'L';
@@ -129,12 +152,13 @@ export default function LandlordHomeScreen() {
   if (properties.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={{ height: insets.top, backgroundColor: C.card }} />
+        <LinearGradient colors={[C.gradStart, C.gradEnd]} style={{ flex: 1 }}>
+        <View style={{ height: insets.top, backgroundColor: C.gradStart }} />
         
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</Text>
             <Text style={styles.nameText}>Welcome</Text>
           </View>
           <View style={styles.avatarContainer}>
@@ -206,7 +230,8 @@ export default function LandlordHomeScreen() {
           </View>
         <View style={{ height: 80 }} />
         </ScrollView>
-      </View>
+      </LinearGradient>
+    </View>
     );
   }
 
@@ -216,12 +241,13 @@ export default function LandlordHomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top, backgroundColor: C.card }} />
+      <LinearGradient colors={[C.gradStart, C.gradEnd]} style={{ flex: 1 }}>
+      <View style={{ height: insets.top, backgroundColor: C.gradStart }} />
       
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'} 👋</Text>
+          <Text style={styles.greetingText}>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</Text>
           <Text style={styles.nameText}>My Properties</Text>
         </View>
         <View style={styles.activeHeaderActions}>
@@ -348,6 +374,7 @@ export default function LandlordHomeScreen() {
         )}
       <View style={{ height: 80 }} />
       </ScrollView>
+      </LinearGradient>
     </View>
   );
 }
@@ -355,25 +382,24 @@ export default function LandlordHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: C.gradStart,
   },
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
-    backgroundColor: C.card,
+    backgroundColor: 'transparent',
     paddingTop: 14,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderColor: C.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   greetingText: {
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '600',
     color: C.mutedFg,
   },
   nameText: {
@@ -404,7 +430,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.muted,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -587,7 +613,7 @@ const styles = StyleSheet.create({
   activePropCard: {
     backgroundColor: C.card,
     borderRadius: 20,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
     shadowColor: '#0F172A',

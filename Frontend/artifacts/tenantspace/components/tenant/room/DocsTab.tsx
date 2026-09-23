@@ -6,6 +6,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import ImageViewing from 'react-native-image-viewing';
 import { Theme } from '../../../constants/theme';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
 
 interface DocsTabProps {
   documents: any[];
@@ -18,6 +19,7 @@ export function DocsTab({ documents }: DocsTabProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuCoords, setMenuCoords] = useState({ x: 0, y: 0 });
   const menuRefs = useRef<{ [key: string]: any }>({});
+  const { showAlert } = usePremiumAlert();
 
   if (!documents || documents.length === 0) {
     return (
@@ -57,7 +59,7 @@ export function DocsTab({ documents }: DocsTabProps) {
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      showAlert({ title: 'Error', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
@@ -98,13 +100,13 @@ export function DocsTab({ documents }: DocsTabProps) {
             getMimeType(doc.name)
           );
           await FileSystem.writeAsStringAsync(savedUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
-          Alert.alert('Success', 'Document downloaded successfully!');
+          showAlert({ title: 'Success', message: 'Document downloaded successfully!', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
         }
       } else {
         await Sharing.shareAsync(localUri, { mimeType: getMimeType(doc.name) });
       }
     } catch (err: any) {
-      Alert.alert('Download Error', 'Could not save the document.');
+      showAlert({ title: 'Download Error', message: 'Could not save the document.', iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 
@@ -120,7 +122,7 @@ export function DocsTab({ documents }: DocsTabProps) {
       }
       await Sharing.shareAsync(fileUri, { mimeType: getMimeType(doc.name) });
     } catch (err: any) {
-      Alert.alert('Share Error', err.message);
+      showAlert({ title: 'Share Error', message: err.message, iconName: 'alert-circle', variant: 'horizontal' });
     }
   };
 

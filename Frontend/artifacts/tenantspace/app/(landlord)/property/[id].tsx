@@ -102,7 +102,7 @@ export default function PropertyDetailScreen() {
           *,
           rooms (*, tenant_memberships (id, status, profiles (id, full_name, role))),
           chores (*),
-          announcements (*),
+          announcements (*, profiles (full_name)),
           maintenance_requests (*)
         `)
         .eq('id', id)
@@ -280,6 +280,7 @@ export default function PropertyDetailScreen() {
           title: title.trim(),
           body: body.trim(),
           expires_at: expiresAt.toISOString(),
+          author_id: profile?.id,
         };
         if (image_url) insertData.image_url = image_url;
         
@@ -397,7 +398,7 @@ export default function PropertyDetailScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.headerIconButton}>
-            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+            <Ionicons name="chevron-back" size={24} color="#64748B" />
           </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{property.name}</Text>

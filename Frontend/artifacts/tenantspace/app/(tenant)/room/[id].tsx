@@ -8,6 +8,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../../lib/supabase';
 import { Theme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
 import { getAllReadReceipts } from '../../../lib/readReceipts';
 import { getTenantColor, getInitials } from '../../../components/ui/AvatarCluster';
 
@@ -31,6 +32,7 @@ export default function TenantRoomScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { showAlert } = usePremiumAlert();
   
   const [activeTab, setActiveTab] = useState<TabKey>('myroom');
   const [readReceipts, setReadReceipts] = useState<Record<string, string>>({});
@@ -74,7 +76,7 @@ export default function TenantRoomScreen() {
           *,
           properties (
             id, name, address, landlord_id,
-            announcements (*),
+            announcements (*, profiles (full_name)),
             chores (*),
             maintenance_requests (*),
             rooms (
@@ -218,18 +220,20 @@ export default function TenantRoomScreen() {
       queryClient.invalidateQueries();
       router.back();
     },
-    onError: (err: any) => Alert.alert('Error leaving room', err.message)
+    onError: (err: any) => showAlert({ title: 'Error leaving room', message: err.message, iconName: 'alert-circle', variant: 'horizontal' })
   });
 
   const handleLeaveRoom = () => {
-    Alert.alert(
-      'End Tenancy',
-      'Are you sure you want to leave this room? This will send a request to your landlord and end your access.',
-      [
+    showAlert({
+      title: 'End Tenancy',
+      message: 'Are you sure you want to leave this room? This will send a request to your landlord and end your access.',
+      iconName: 'exit-outline',
+      variant: 'centered',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         { text: 'End Tenancy', style: 'destructive', onPress: () => leaveRoomMutation.mutate() }
       ]
-    );
+    });
   };
 
   const handleChatPress = (type: 'private' | 'group') => {
@@ -299,7 +303,7 @@ export default function TenantRoomScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+            <Ionicons name="chevron-back" size={24} color="#64748B" />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{roomData.properties?.name || 'Property'}</Text>
@@ -380,8 +384,8 @@ export default function TenantRoomScreen() {
 const styles = StyleSheet.create({
   centerContainer: { flex: 1, backgroundColor: Theme.colors.bg, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1, backgroundColor: Theme.colors.bg },
-  header: { backgroundColor: '#fff', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  backBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: Theme.colors.muted, alignItems: 'center', justifyContent: 'center' },
+  header: { backgroundColor: '#E8ECEF', paddingHorizontal: 16, paddingBottom: 14, },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { fontSize: 16, color: Theme.colors.mutedFg },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.fg, letterSpacing: -0.4 },
   headerSub: { fontSize: 12, color: Theme.colors.mutedFg, marginTop: 1 },

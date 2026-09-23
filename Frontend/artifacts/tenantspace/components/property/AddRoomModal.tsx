@@ -17,6 +17,7 @@ import { BlurView } from 'expo-blur';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { C } from './propertyStyles';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 
 interface AddRoomModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export default function AddRoomModal({ visible, onClose, propertyId, propertyNam
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
+  const { showAlert } = usePremiumAlert();
 
   const generateCode = (propName: string) => {
     const prefix = propName.slice(0, 4).replace(/\s/g, '').toUpperCase();
@@ -74,7 +76,7 @@ export default function AddRoomModal({ visible, onClose, propertyId, propertyNam
       }
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to add room.');
+      showAlert({ title: 'Error', message: error.message || 'Failed to add room.', iconName: 'alert-circle', variant: 'horizontal' });
     }
   });
 
@@ -92,7 +94,7 @@ export default function AddRoomModal({ visible, onClose, propertyId, propertyNam
   const copyCode = async () => {
     if (createdCode) {
       await Clipboard.setStringAsync(createdCode);
-      Alert.alert('Copied!', 'Invite code copied to clipboard.');
+      showAlert({ title: 'Copied!', message: 'Invite code copied to clipboard.', iconName: 'checkmark-circle-outline', variant: 'horizontal', buttons: [{ text: 'OK', style: 'default' }] });
     }
   };
 

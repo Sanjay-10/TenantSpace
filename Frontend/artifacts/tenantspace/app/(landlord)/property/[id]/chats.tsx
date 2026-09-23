@@ -189,7 +189,6 @@ export default function LandlordChatsHub() {
         <View style={styles.chatHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={styles.roomName}>{item.name}</Text>
-            <Text style={styles.tenantCount}>{item.tenantCount} tenant{item.tenantCount !== 1 && 's'}</Text>
           </View>
         </View>
         <Text style={[styles.msgPreview, item.unreadCount > 0 && styles.msgPreviewUnread]} numberOfLines={1}>
@@ -214,7 +213,7 @@ export default function LandlordChatsHub() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+            <Ionicons name="chevron-back" size={24} color="#64748B" />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>Room Chats</Text>
@@ -246,7 +245,6 @@ export default function LandlordChatsHub() {
                 <View style={styles.chatHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={styles.roomName}>{property.name}</Text>
-                    <Text style={styles.tenantCount}>All tenants</Text>
                   </View>
                 </View>
                 <Text style={[styles.msgPreview, groupUnreadCount > 0 && styles.msgPreviewUnread]} numberOfLines={1}>
@@ -276,15 +274,15 @@ export default function LandlordChatsHub() {
 }
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, backgroundColor: '#fff' },
+  centerContainer: { flex: 1, backgroundColor: Theme.colors.bg, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: Theme.colors.bg },
   
-  header: { paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' },
-  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  header: { paddingHorizontal: 16, paddingBottom: 6, backgroundColor: Theme.colors.bg },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { fontSize: 16, color: '#64748B' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A', letterSpacing: -0.4 },
   headerSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  searchBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  searchBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   searchIcon: { fontSize: 14 },
   
   listContent: { paddingBottom: 100 },
@@ -301,7 +299,7 @@ const styles = StyleSheet.create({
   sectionHeading: { paddingTop: 5, paddingHorizontal: 16, marginTop: 4 },
   sectionHeadingText: { fontSize: 14, fontWeight: '700', color: '#64748B', letterSpacing: 0.5 },
   
-  chatRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  chatRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginRight: 14, position: 'relative' },
   avatarText: { fontSize: 18, fontWeight: '800', color: '#fff' },
   

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { usePremiumAlert } from '../../contexts/AlertContext';
 
 type Role = 'landlord' | 'tenant';
 
@@ -25,15 +26,16 @@ export default function RoleSelectScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session, refreshProfile, signOut } = useAuth();
+  const { showAlert } = usePremiumAlert();
 
   const handleContinue = async () => {
     if (!selectedRole) {
-      Alert.alert('Error', 'Please select a role to continue.');
+      showAlert({ title: 'Error', message: 'Please select a role to continue.', iconName: 'alert-circle', variant: 'horizontal' });
       return;
     }
 
     if (!session?.user?.id) {
-      Alert.alert('Session Error', 'You must be logged in to select a role.');
+      showAlert({ title: 'Session Error', message: 'You must be logged in to select a role.', iconName: 'alert-circle', variant: 'horizontal' });
       router.replace('/(auth)/login');
       return;
     }
@@ -47,7 +49,7 @@ export default function RoleSelectScreen() {
         .eq('id', session.user.id);
 
       if (error) {
-        Alert.alert('Error', 'Failed to save role. Please try again.');
+        showAlert({ title: 'Error', message: 'Failed to save role. Please try again.', iconName: 'alert-circle', variant: 'horizontal' });
       } else {
         // Sync our local AuthContext session profile
         await refreshProfile();
@@ -61,7 +63,7 @@ export default function RoleSelectScreen() {
       }
     } catch (err) {
       console.error('Role update error:', err);
-      Alert.alert('Error', 'An unexpected error occurred.');
+      showAlert({ title: 'Error', message: 'An unexpected error occurred.', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setUpdating(false);
     }

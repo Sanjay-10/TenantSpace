@@ -45,7 +45,7 @@ export default function LandlordChatScreen() {
 
   if (isLoading || !profile) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.bg }}>
         <ActivityIndicator size="large" color={Theme.colors.primary} />
       </View>
     );
@@ -53,7 +53,7 @@ export default function LandlordChatScreen() {
 
   if (error || !roomData) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.bg }}>
         <Text style={{ color: Theme.colors.danger }}>Failed to load chat data.</Text>
       </View>
     );
@@ -94,7 +94,7 @@ export default function LandlordChatScreen() {
     });
   });
 
-  const title = isGroup ? `${roomData.name} · All Tenants` : targetRoomName;
+  const title = isGroup ? `${roomData.name}` : targetRoomName;
   const subtitle = isGroup ? 'Broadcast / House Group Chat' : 'Private room chat';
 
   return (

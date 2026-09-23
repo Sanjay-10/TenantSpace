@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../contexts/AuthContext';
+import { AlertProvider } from '../contexts/AlertContext';
 import { QueryClient, useIsRestoring } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -71,17 +72,19 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <AuthProvider>
-                <ThemeSync />
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="index" options={{ gestureEnabled: false }} />
-                  <Stack.Screen name="(auth)/login" options={{ gestureEnabled: false }} />
-                  <Stack.Screen name="(auth)/signup" />
-                  <Stack.Screen name="(auth)/role-select" />
-                  {/* Landlord group */}
-                  <Stack.Screen name="(landlord)/home" options={{ gestureEnabled: false }} />
-                  {/* Tenant group */}
-                  <Stack.Screen name="(tenant)/home" options={{ gestureEnabled: false }} />
-                </Stack>
+                <AlertProvider>
+                  <ThemeSync />
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+                    <Stack.Screen name="(auth)/login" options={{ gestureEnabled: false }} />
+                    <Stack.Screen name="(auth)/signup" />
+                    <Stack.Screen name="(auth)/role-select" />
+                    {/* Landlord group */}
+                    <Stack.Screen name="(landlord)/home" options={{ gestureEnabled: false }} />
+                    {/* Tenant group */}
+                    <Stack.Screen name="(tenant)/home" options={{ gestureEnabled: false }} />
+                  </Stack>
+                </AlertProvider>
               </AuthProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

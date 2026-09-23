@@ -19,6 +19,8 @@ import { Theme } from '../../../constants/theme';
 import { supabase } from '../../../lib/supabase';
 import { getTenantColor, getTenantTextColor, getInitials } from '../../../components/ui/AvatarCluster';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePremiumAlert } from '../../../contexts/AlertContext';
+import { FormInput } from '../../../components/ui/FormInput';
 
 const PRESETS = ["Kitchen", "Bathroom", "Hallway", "Bins", "Living room", "Garden"];
 const DAY_OPTS = [
@@ -40,8 +42,10 @@ export default function AssignChoreScreen() {
   const { propertyId, choreId } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert } = usePremiumAlert();
 
   const [dutyName, setDutyName] = useState('');
+  const [errors, setErrors] = useState<{dutyName?: string}>({});
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [freq, setFreq] = useState('weekly');
   const [repeatCycle, setRepeatCycle] = useState(true);
@@ -138,8 +142,18 @@ export default function AssignChoreScreen() {
   };
 
   const handleSaveChore = async () => {
-    if (!dutyName.trim() || selectedDays.length === 0 || rotation.length === 0) {
-      Alert.alert("Incomplete", "Please provide a name, select at least one day, and add at least one person.");
+    let hasError = false;
+    const newErrors: any = {};
+    if (!dutyName.trim()) {
+      newErrors.dutyName = 'Chore name is required';
+      hasError = true;
+    }
+    setErrors(newErrors);
+
+    if (hasError || selectedDays.length === 0 || rotation.length === 0) {
+      if (selectedDays.length === 0 || rotation.length === 0) {
+        showAlert({ title: 'Incomplete', message: 'Please select at least one day and add at least one person.', iconName: 'alert-circle', variant: 'horizontal' });
+      }
       return;
     }
     setLoading(true);
@@ -168,7 +182,7 @@ export default function AssignChoreScreen() {
       router.back();
     } catch (err: any) {
       console.error(err);
-      Alert.alert("Error", err.message || "Failed to save chore");
+      showAlert({ title: 'Error', message: err.message || 'Failed to save chore', iconName: 'alert-circle', variant: 'horizontal' });
     } finally {
       setLoading(false);
     }
@@ -184,7 +198,7 @@ export default function AssignChoreScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color="#64748B" />
+            <Ionicons name="chevron-back" size={24} color="#64748B" />
           </Pressable>
           <View>
             <Text style={styles.headerTitle}>{choreId ? 'Edit Chore' : 'Assign Chore'}</Text>
@@ -195,13 +209,12 @@ export default function AssignChoreScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CHORE NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Kitchen, Bins…"
+          <FormInput
+            label="CHORE NAME"
             value={dutyName}
-            onChangeText={setDutyName}
-            placeholderTextColor={Theme.colors.mutedFg}
+            onChangeText={(txt) => { setDutyName(txt); setErrors({}); }}
+            placeholder="e.g. Kitchen, Bins…"
+            error={errors.dutyName}
           />
           <View style={styles.presetsContainer}>
             {PRESETS.map(p => {
